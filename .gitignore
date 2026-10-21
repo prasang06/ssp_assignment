@@ -1,0 +1,12 @@
+# Private thinking/process notes — not part of the submitted work
+RESEARCHER.md
+WRITING.md
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Scratch
+scratch/
+*.tmp
