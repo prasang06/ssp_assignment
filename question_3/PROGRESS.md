@@ -32,6 +32,13 @@ phonopy/ASE and the notebook workflow as off-requirement. It also uses a differe
 - **Optional bonus item:** phonon DOS as a histogram over the BZ eigenfrequencies. Not in the
   PDF, cheap given the dispersion is already computed, and it pairs with the D(E) work in Q5.
 
+## Size assessment (asked 2026-10-22, not acted on)
+~456 substantive lines total, of which the physics is 26 (`dynamical_matrix` 18, `dispersion` 8).
+The rest: derived quantities and closed forms 51, tests 49, interface 156, figures 139, style 35.
+Only genuine redundancy is the dispersion plot being drawn independently in `app.py` and
+`make_figures.py` (~25 lines) — worth hoisting into one shared function if touched again.
+Everything else maps to a stated requirement or to the validation. Left as is by request.
+
 ## Open questions
 - None blocking. Per-bond spring constants ($K_1 \dots K_p$) are treated as an optional extra
   beyond the PDF's single-$K$ wording; the UI defaults to a single $K$.
@@ -51,9 +58,11 @@ phonopy/ASE and the notebook workflow as off-requirement. It also uses a differe
   now carries the preset name.
 - **`common/style.py`** — shared palette, CVD-validated (worst adjacent pair dE 11.0 deutan).
 - **`make_figures.py`** — 8 figures regenerated from scratch by one command.
-- **`report/report.tex`** — RevTeX (`revtex4-2`, aps/prb/reprint), 7 pages two-column,
+- **`report/report.tex`** — RevTeX (`revtex4-2`, aps/prb/reprint), 14 pages two-column,
   zero overfull boxes. Authors in a flowing APS list, Prasang Das first. Wide figures and
-  the six-column table span both columns; the diatomic equation uses `widetext`.
+  the six-column table span both columns. Code listings via `listings`, pulled in with
+  `\lstinputlisting` so they cannot drift from the sources; excerpt of the matrix assembly in
+  the method section, complete sources in a one-column appendix.
 
 ### Bug found and fixed by the tests
 For p=2 the intra-cell and inter-cell bonds share matrix element D[0,1]: atom 1 bonds to atom 2

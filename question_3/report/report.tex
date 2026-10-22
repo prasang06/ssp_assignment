@@ -3,6 +3,31 @@
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codekw}{HTML}{0072B2}
+\definecolor{codestr}{HTML}{009E73}
+\definecolor{codecom}{HTML}{777777}
+
+\lstset{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{codekw},
+  stringstyle=\color{codestr},
+  commentstyle=\color{codecom}\itshape,
+  numbers=left, numberstyle=\tiny\color{codecom}, numbersep=7pt,
+  frame=single, rulecolor=\color{codecom},
+  breaklines=true, breakatwhitespace=true,
+  showstringspaces=false, tabsize=4,
+  columns=fullflexible, keepspaces=true,
+  extendedchars=true, inputencoding=utf8,
+  literate=%
+    {ω}{{$\omega$}}1 {π}{{$\pi$}}1 {μ}{{$\mu$}}1
+    {→}{{$\rightarrow$}}1 {≤}{{$\le$}}1 {≥}{{$\ge$}}1
+    {—}{{---}}1 {–}{{--}}1 {Δ}{{$\Delta$}}1 {×}{{$\times$}}1
+}
+
 \usepackage{hyperref}
 \hypersetup{colorlinks=true, linkcolor=black, citecolor=black,
             filecolor=black, urlcolor=blue}
@@ -63,6 +88,7 @@ the cases that can be solved by hand, and uses it to examine how masses and spri
 control the spectrum.
 
 \section{Theory}
+\label{sec:theory}
 
 \subsection{Equations of motion}
 
@@ -183,6 +209,33 @@ The procedure is deliberately direct; no iteration or convergence criterion is i
 
 The cost is $n_q$ diagonalisations of a $p \times p$ matrix, negligible for the sizes here, which
 is why the interface can recompute the full spectrum on every slider movement.
+
+The whole of the physics is the assembly in step 2 together with the single call in step 3; the
+rest of the codebase computes derived quantities, validates them, or draws them.
+Listing~\ref{lst:core} is the implementation, reproduced verbatim from
+\texttt{phonon.py}.
+
+\begin{lstlisting}[caption={Construction of the dynamical matrix. The \texttt{+=} on the
+inter-cell bond is the subtlety discussed in Sec.~\ref{sec:theory}.},label={lst:core},
+firstnumber=1]
+D = np.zeros((p, p), dtype=complex)
+np.fill_diagonal(D, 2.0 * K / m)
+
+# intra-cell bonds
+for j in range(p - 1):
+    c = -K / np.sqrt(m[j] * m[j + 1])
+    D[j, j + 1] = c
+    D[j + 1, j] = c
+
+# inter-cell bond, carries all the q-dependence
+c = -K * np.exp(-1j * q * a) / np.sqrt(m[0] * m[-1])
+D[0, -1] += c
+D[-1, 0] += np.conj(c)
+
+# D is Hermitian, so eigvalsh gives real, ascending eigenvalues
+w2 = np.linalg.eigvalsh(D)
+omega = np.sqrt(np.clip(w2, 0.0, None))
+\end{lstlisting}
 
 \subsection{Validation}
 
@@ -421,6 +474,32 @@ python test_phonon.py    # checks
 python make_figures.py   # figures
 streamlit run app.py     # interface
 \end{verbatim}
+
+\onecolumngrid
+\appendix
+
+\section{Complete source code}
+
+All listings are included directly from the source files, so they cannot drift from the code that
+produced the results above. The files are, in dependency order: the physics core, its validation
+suite, the shared plotting style, the figure generator, and the interactive interface.
+
+\subsection{\texttt{phonon.py} --- physics core}
+\lstinputlisting{../phonon.py}
+
+\subsection{\texttt{test\_phonon.py} --- validation suite}
+\lstinputlisting{../test_phonon.py}
+
+\subsection{\texttt{common/style.py} --- shared plotting style}
+\lstinputlisting{../../common/style.py}
+
+\subsection{\texttt{make\_figures.py} --- figure generation}
+\lstinputlisting{../make_figures.py}
+
+\subsection{\texttt{app.py} --- interactive interface}
+\lstinputlisting{../app.py}
+
+\twocolumngrid
 
 \begin{thebibliography}{9}
 \bibitem{kittel} C.~Kittel, \textit{Introduction to Solid State Physics}, 8th ed., Wiley, 2005.
