@@ -39,6 +39,17 @@ Only genuine redundancy is the dispersion plot being drawn independently in `app
 `make_figures.py` (~25 lines) — worth hoisting into one shared function if touched again.
 Everything else maps to a stated requirement or to the validation. Left as is by request.
 
+## Figure review (2026-10-22)
+Reviewed every figure at full size. Two defects found and fixed:
+- **DOS panels had independent y-axes** while the report compares peak heights across the three
+  cases. Now `sharey=True`, and the mesh went to 40001 q-points to kill histogram noise.
+  Checked the robustness of the claim: the C > A > B ordering holds at every bin count tested
+  (100-800), though absolute heights grow without bound with binning, since the van Hove
+  divergence is integrable. The report quotes no absolute DOS value, so the claim stands.
+- **Spring-sweep right panel carried a four-entry legend for curves that coincide by design.**
+  Replaced with an annotation. K also moved from viridis to a single-hue ramp, since K is an
+  ordered quantity, not a categorical one.
+
 ## Open questions
 - None blocking. Per-bond spring constants ($K_1 \dots K_p$) are treated as an optional extra
   beyond the PDF's single-$K$ wording; the UI defaults to a single $K$.

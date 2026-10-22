@@ -84,7 +84,8 @@ def fig_spring_sweep():
     Ks = [0.5, 1.0, 2.0, 4.0]
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3.6))
 
-    greys = plt.cm.viridis(np.linspace(0.15, 0.85, len(Ks)))
+    # K is ordered, so a single-hue light->dark ramp, not a categorical set
+    greys = plt.cm.Blues(np.linspace(0.42, 1.0, len(Ks)))
     for K, c in zip(Ks, greys):
         q, w = ph.dispersion(m, K, nq=601)
         ax1.plot(q / np.pi, w[:, 0], color=c, label=f"$K={K}$")
@@ -92,21 +93,23 @@ def fig_spring_sweep():
     ax1.set_xlabel(r"Wavevector $q$  ($\pi/a$)")
     ax1.set_ylabel(r"Frequency $\omega$")
     ax1.set_xlim(-1, 1)
-    ax1.set_ylim(bottom=0)
+    ax1.set_ylim(0, 4.1)  # headroom so the legend clears the K=4 curve
     ax1.set_title("Both branches scale as $\\sqrt{K}$")
-    ax1.legend(loc="upper right")
+    ax1.legend(loc="upper left", fontsize=9, ncol=2)
 
     # rescaling by sqrt(K) collapses every curve onto one
     for K, c in zip(Ks, greys):
         q, w = ph.dispersion(m, K, nq=601)
-        ax2.plot(q / np.pi, w[:, 0] / np.sqrt(K), color=c, label=f"$K={K}$")
-        ax2.plot(q / np.pi, w[:, 1] / np.sqrt(K), color=c)
+        ax2.plot(q / np.pi, w[:, 0] / np.sqrt(K), color=c, lw=3.2)
+        ax2.plot(q / np.pi, w[:, 1] / np.sqrt(K), color=c, lw=3.2)
     ax2.set_xlabel(r"Wavevector $q$  ($\pi/a$)")
     ax2.set_ylabel(r"$\omega/\sqrt{K}$")
     ax2.set_xlim(-1, 1)
     ax2.set_ylim(bottom=0)
     ax2.set_title("Rescaled: the curves collapse")
-    ax2.legend(loc="upper right")
+    # no legend here: all four curves lie on top of each other, which is the point
+    ax2.annotate("all four $K$ superimposed", xy=(0.0, 1.05), ha="center", fontsize=9.5,
+                 bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="0.7"))
 
     fig.savefig(f"{FIG}/spring_sweep.png")
     plt.close(fig)
@@ -160,9 +163,10 @@ def fig_validation():
 # ---- density of states ----
 
 def fig_dos():
-    fig, axes = plt.subplots(1, 3, figsize=(11, 3.2), sharey=False)
+    fig, axes = plt.subplots(1, 3, figsize=(11, 3.2), sharey=True)
     for ax, (_, m, K, title) in zip(axes, CASES):
-        centres, g = ph.dos(m, K, nbins=160)
+        # shared y-axis: the report compares peak heights across the three cases
+        centres, g = ph.dos(m, K, nq=40001, nbins=200)
         ax.fill_between(centres, g, color=style.ACOUSTIC, alpha=0.35, lw=0)
         ax.plot(centres, g, color=style.ACOUSTIC, lw=1.2)
         ax.set_xlabel(r"Frequency $\omega$")
