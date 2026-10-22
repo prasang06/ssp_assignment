@@ -410,11 +410,14 @@ $K$ sets only its scale.
 \centering
 \includegraphics[width=\textwidth]{dos.png}
 \caption{Phonon density of states for the three cases, from a histogram of $\omega$ over a dense
-$q$ mesh. Empty regions are the bandgaps of Table~\ref{tab:cases}.}
+$q$ mesh, normalised per unit cell so each panel integrates to its branch count $p$. Empty
+regions are the bandgaps of Table~\ref{tab:cases}. A histogram resolves the van Hove peaks but
+cannot represent the divergence itself: peak heights are set partly by the bin width.}
 \label{fig:dos}
 \end{figure*}
 
-The density of states $g(\omega)$ counts modes per unit frequency. It is zero inside every gap,
+The density of states $g(\omega)$ counts modes per unit frequency, normalised per unit cell so
+that $\int g(\omega)\,d\omega = p$. It is zero inside every gap,
 which is what "forbidden frequency range" means in practice: an incident wave at such a frequency
 finds no mode to propagate in and is reflected. The sharp peaks are van Hove singularities,
 occurring where a branch has zero slope --- at the zone centre and boundary, and across the whole

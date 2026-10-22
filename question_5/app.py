@@ -41,7 +41,9 @@ def ev(E):
 with st.sidebar:
     st.header("Material")
     preset = st.selectbox("Preset", ["Custom", "GaAs", "Si", "Ge"])
-    mats = {"GaAs": (1.42, 0.067), "Si": (1.12, 0.26), "Ge": (0.66, 0.12)}
+    # density-of-states masses, not conductivity masses: these already fold in
+    # the valley degeneracy (Si 6 X valleys, Ge 4 L), so do not multiply again
+    mats = {"GaAs": (1.42, 0.067), "Si": (1.12, 1.08), "Ge": (0.66, 0.56)}
     if preset in mats:
         eg_d, me_d = mats[preset]
     else:

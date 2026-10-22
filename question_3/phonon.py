@@ -83,10 +83,14 @@ def sound_velocity(m, K=1.0, a=1.0):
 
 
 def dos(m, K=1.0, a=1.0, nq=4001, nbins=200):
-    """Phonon density of states by histogramming omega over a dense q mesh."""
+    """Phonon DOS per unit cell by histogramming omega over a dense q mesh.
+
+    Normalised so that the integral of g over all frequencies equals p, the
+    number of branches: density=True gives unit area, so scale by p.
+    """
     _, w = dispersion(m, K, a, nq=nq)
     counts, edges = np.histogram(w.ravel(), bins=nbins, density=True)
-    return 0.5 * (edges[:-1] + edges[1:]), counts
+    return 0.5 * (edges[:-1] + edges[1:]), w.shape[1] * counts
 
 
 # ---- closed forms, for validation ----

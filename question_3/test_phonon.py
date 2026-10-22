@@ -27,14 +27,16 @@ def test_monatomic():
     err = np.abs(w[:, 0] - ph.monatomic_exact(q, 1.0, K, a)).max()
     ok = check("monatomic vs closed form", err < 1e-10, f"max err {err:.2e}")
 
-    # three equal masses in a cell of length 3a must unfold onto the same curve:
-    # the set of frequencies at each q is a subset of the monatomic branch
-    _, w3 = ph.dispersion([1.0, 1.0, 1.0], K, 3 * a, nq=301)
-    qq = np.linspace(-np.pi / a, np.pi / a, 20001)
-    exact = ph.monatomic_exact(qq, 1.0, K, a)
-    far = max(np.abs(exact - f).min() for f in w3.ravel())
-    return ok and check("equal-mass cell unfolds onto monatomic branch",
-                        far < 1e-3, f"max distance {far:.2e}")
+    # three equal masses in a cell of length 3a must be the monatomic branch
+    # folded into the smaller zone: at each q the three frequencies are the
+    # monatomic ones at q + 2*pi*n/(3a), n = -1, 0, 1. Compared at matched q,
+    # so this pins the frequency-to-wavevector map, not just the frequency set.
+    q3, w3 = ph.dispersion([1.0, 1.0, 1.0], K, 3 * a, nq=301)
+    folded = np.sort(np.stack([ph.monatomic_exact(q3 + 2 * np.pi * n / (3 * a), 1.0, K, a)
+                               for n in (-1, 0, 1)], axis=1), axis=1)
+    err = np.abs(w3 - folded).max()
+    return ok and check("equal-mass cell folds onto monatomic branch at matched q",
+                        err < 1e-10, f"max err {err:.2e}")
 
 
 # ---- 3. acoustic slope at q->0 equals the analytic sound velocity ----

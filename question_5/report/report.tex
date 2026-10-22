@@ -274,7 +274,10 @@ at $n=10^{17}\,$cm$^{-3}$. $f(E)$ passes through $\tfrac12$ exactly at $\mu$.}
 \centering
 \includegraphics[width=\columnwidth]{occupation.png}
 \caption{The occupation step softens over a width of order $k_BT$. At $10$ K it is nearly the
-$T=0$ step; at $600$ K it is smeared over more than $0.2$ eV.}
+$T=0$ step; at $600$ K it is smeared over more than $0.2$ eV. The curves share a single reference
+$\mu$, solved at $300$ K and $10^{19}\,$cm$^{-3}$ and then held fixed, so that the figure shows
+thermal broadening alone; the self-consistent $\mu(T)$ at fixed $n$ moves as well, which is what
+Figure~\ref{fig:muT} plots.}
 \label{fig:occ}
 \end{figure}
 
@@ -320,7 +323,10 @@ keep every reported case within the range where the stated model holds.
 \caption{$D(E)$ and the occupied density of states $D(E)f(E)$ across the three regimes, at
 $300$ K. A logarithmic axis is necessary: at $10^{16}\,$cm$^{-3}$ the occupied curve lies some
 four orders of magnitude below $D(E)$ and would be indistinguishable from zero on a linear
-scale. The area under $D(E)f(E)$ is $n$ in every panel.}
+scale. The area under $D(E)f(E)$ is $n$ in every panel. Both curves are the conduction-band
+quantities only; the valence band and holes lie outside the model. The occupied curve is clipped
+at $10^{10}\,$m$^{-3}$eV$^{-1}$ for plotting --- a floor on the axis, not on the physics, which
+decays smoothly to zero.}
 \label{fig:dos}
 \end{figure*}
 
@@ -387,11 +393,14 @@ sets in.
 Material & $E_g$ (eV) & $m^*/m_e$ & $\mu-E_c$ (meV) & $\eta$ \\
 \midrule
 GaAs & $1.42$ & $0.067$ & $-35.9$ & $-1.39$ \\
-Si   & $1.12$ & $0.260$ & $-90.3$ & $-3.49$ \\
-Ge   & $0.66$ & $0.120$ & $-59.7$ & $-2.31$ \\
+Si   & $1.12$ & $1.080$ & $-145.8$ & $-5.64$ \\
+Ge   & $0.66$ & $0.560$ & $-120.3$ & $-4.65$ \\
 \bottomrule
 \end{tabular}
-\caption{The three presets at $n=10^{17}\,$cm$^{-3}$ and $300$ K.}
+\caption{The three presets at $n=10^{17}\,$cm$^{-3}$ and $300$ K. The masses are
+density-of-states masses, which already include the valley degeneracy (six $X$ valleys in
+silicon, four $L$ in germanium), so $N_c$ must not be multiplied by it a second time. They are
+larger than the conductivity masses quoted for mobility calculations.}
 \label{tab:materials}
 \end{table}
 
@@ -422,10 +431,12 @@ degenerate limit. Applying it:
   \item Effective mass, not band gap, controls how readily a material becomes degenerate.
 \end{itemize}
 
-The model's limitations bound where it may be used. The band is a single parabolic valley: real
-silicon has six equivalent $X$ valleys, which raise $N_c$ by that factor, and GaAs has $L$ and
-$X$ valleys only $0.29$ and $0.48$ eV above $\Gamma$, so the model fails once $E_F$ approaches
-them --- the reason the doping range above stops at $10^{19}\,$cm$^{-3}$. Band non-parabolicity
+The model's limitations bound where it may be used. The band is a single isotropic parabolic
+valley. Using density-of-states masses makes $N_c$ correct for the multi-valley materials, but
+$k_F$ and $v_F$ computed from them describe one equivalent sphere rather than the real set of
+anisotropic valleys. GaAs has $L$ and $X$ valleys only $0.29$ and $0.48$ eV above $\Gamma$, and
+once $E_F$ approaches them those valleys hold carriers the model never counts --- the reason the
+doping range above stops at $10^{19}\,$cm$^{-3}$. Band non-parabolicity
 would reduce $E_F$ further at high doping. We also neglect the valence band and dopant
 ionisation statistics, and treat $n$ as an input rather than solving for it self-consistently
 from the dopant levels.
