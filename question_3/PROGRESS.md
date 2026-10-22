@@ -44,6 +44,11 @@ phonopy/ASE and the notebook workflow as off-requirement. It also uses a differe
 - **`test_phonon.py`** — all five SCOPE.md checks pass. Diatomic to 4.5e-14, monatomic to
   1.6e-15, sound velocity to 1.6e-8, omega_acoustic(0) = 0 exactly, gap closure confirmed.
 - **`app.py`** — Streamlit interface; verified serving HTTP 200 with no runtime errors.
+  Later additions: mode-displacement panel (eigenvectors), analytic overlay toggle for p<=2,
+  CSV export of the dispersion.
+  Bug fixed: mass inputs used a fixed widget key, and Streamlit ignores `value` once a keyed
+  widget exists in session state — so switching preset silently kept the old masses. The key
+  now carries the preset name.
 - **`common/style.py`** — shared palette, CVD-validated (worst adjacent pair dE 11.0 deutan).
 - **`make_figures.py`** — 8 figures regenerated from scratch by one command.
 - **`report/report.tex`** — RevTeX (`revtex4-2`, aps/prb/reprint), 7 pages two-column,

@@ -101,3 +101,18 @@ def diatomic_exact(q, m1, m2, K=1.0, a=1.0):
     s = 1.0 / m1 + 1.0 / m2
     root = np.sqrt(s**2 - 4.0 * np.sin(q * a / 2.0) ** 2 / (m1 * m2))
     return np.sqrt(K * (s - root)), np.sqrt(K * (s + root))
+
+
+# ---- eigenvectors ----
+
+def modes(q, m, K=1.0, a=1.0):
+    """Frequencies and real-space displacement patterns at one q.
+
+    eigh returns the mass-weighted eigenvectors e; the physical displacement
+    amplitude is u_j = e_j / sqrt(m_j), which is what gets drawn.
+    """
+    m = np.atleast_1d(np.asarray(m, dtype=float))
+    w2, e = np.linalg.eigh(dynamical_matrix(q, m, K, a))
+    u = e / np.sqrt(m)[:, None]
+    u = u / np.abs(u).max(axis=0)  # normalise each mode for plotting
+    return np.sqrt(np.clip(w2, 0.0, None)), u

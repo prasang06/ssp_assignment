@@ -38,14 +38,19 @@ with st.sidebar:
     else:
         base = [1.0 + i for i in range(p)]
 
+    # the key carries the preset: a keyed widget ignores `value` once it exists,
+    # so without this, switching preset would leave the old masses in place
     masses = [st.number_input(f"$m_{{{j+1}}}$", min_value=0.01, value=float(base[j]),
-                              step=0.1, key=f"m{j}") for j in range(p)]
+                              step=0.1, key=f"m_{preset}_{j}") for j in range(p)]
 
     st.subheader("Interaction")
     K = st.number_input("Spring constant $K$", min_value=0.01, value=1.0, step=0.1)
     a = st.number_input("Lattice constant $a$ (full cell)", min_value=0.01, value=1.0, step=0.1)
     nq = st.select_slider("q-points", [201, 401, 801, 1601], value=801)
     show_dos = st.checkbox("Show density of states", value=True)
+    show_modes = st.checkbox("Show mode displacements", value=True)
+    show_exact = st.checkbox("Overlay analytic solution", value=False,
+                             help="Available for p = 1 and p = 2.")
 
 # ---- solve ----
 
@@ -72,6 +77,18 @@ with left:
         ax.plot(q / np.pi, w[:, i], color=colors[i],
                 label="Acoustic" if i == 0 else f"Optical {i}")
 
+    if show_exact and p <= 2:
+        if p == 1:
+            ax.plot(q / np.pi, ph.monatomic_exact(q, masses[0], K, a),
+                    color=style.EXACT, lw=3.0, alpha=0.3, zorder=0, label="Analytic")
+        else:
+            ac, op = ph.diatomic_exact(q, masses[0], masses[1], K, a)
+            ax.plot(q / np.pi, ac, color=style.EXACT, lw=3.0, alpha=0.3, zorder=0,
+                    label="Analytic")
+            ax.plot(q / np.pi, op, color=style.EXACT, lw=3.0, alpha=0.3, zorder=0)
+    elif show_exact:
+        st.caption("No closed form for $p > 2$; the overlay is shown only for $p \\le 2$.")
+
     ax.set_xlabel(r"Wavevector $q$  ($\pi/a$)")
     ax.set_ylabel(r"Frequency $\omega$  ($\sqrt{K/m_1}$)")
     ax.set_xlim(-1, 1)
@@ -79,6 +96,10 @@ with left:
     ax.legend(loc="upper right")
     st.pyplot(fig)
     plt.close(fig)
+
+    csv = "q," + ",".join(["acoustic"] + [f"optical_{i}" for i in range(1, p)]) + "\n"
+    csv += "\n".join(",".join(f"{v:.6g}" for v in row) for row in np.column_stack([q, w]))
+    st.download_button("Download dispersion as CSV", csv, "dispersion.csv", "text/csv")
 
 with right:
     st.subheader("Branch limits")
@@ -130,3 +151,49 @@ if show_dos:
     plt.close(fig)
     st.caption("Peaks are van Hove singularities, where a branch flattens and many "
                "q-states share one frequency.")
+
+# ---- mode displacements ----
+
+if show_modes:
+    st.subheader("Mode displacements")
+    st.caption("Arrows show the instantaneous displacement of each atom. "
+               "Pick a branch and a wavevector to see how that mode actually moves.")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        branch = st.selectbox("Branch", ["Acoustic"] + [f"Optical {i}" for i in range(1, p)])
+    with c2:
+        q_frac = st.slider("q  (units of π/a)", 0.0, 1.0, 0.0, 0.05)
+
+    b = 0 if branch == "Acoustic" else int(branch.split()[-1])
+    q_sel = q_frac * np.pi / a
+    w_sel, u_sel = ph.modes(q_sel, masses, K, a)
+
+    ncells = 4
+    fig, ax = plt.subplots(figsize=(8, 2.4))
+    for n in range(ncells):
+        for j in range(p):
+            x0 = n * a + j * a / p
+            # real part of u_j * exp(iqna): the displacement at this instant
+            d = np.real(u_sel[j, b] * np.exp(1j * q_sel * n * a))
+            ax.plot([x0], [0], marker="o", ms=9,
+                    color=style.branch_colors(p)[j % p], zorder=3)
+            ax.arrow(x0, 0, 0.32 * a * d / p * ncells, 0, head_width=0.07,
+                     head_length=0.04, fc=style.EXACT, ec=style.EXACT, zorder=2,
+                     length_includes_head=True)
+    ax.axhline(0, color="0.8", lw=0.8, zorder=0)
+    ax.set_xlabel("Position along the chain  ($a$)")
+    ax.set_yticks([])
+    ax.set_xlim(-0.3, ncells * a + 0.3)
+    ax.set_ylim(-0.5, 0.5)
+    ax.set_title(f"{branch} mode at $q = {q_frac:.2f}\\,\\pi/a$,  "
+                 f"$\\omega = {w_sel[b]:.4f}$")
+    st.pyplot(fig)
+    plt.close(fig)
+
+    if b == 0 and q_frac == 0.0:
+        st.info("At $q=0$ the acoustic mode is a uniform translation — every atom moves "
+                "together, no spring stretches, so $\\omega = 0$.")
+    elif b > 0 and q_frac == 0.0:
+        st.info("At $q=0$ an optical mode has the atoms inside each cell moving against "
+                "one another, with the cell's centre of mass at rest.")
