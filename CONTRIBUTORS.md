@@ -8,7 +8,7 @@ semiconductor crystal).
 |---|---|---|
 | EP24BTECH11011 | Guhan Dhanasekharan | [@Guhan8](https://github.com/Guhan8) |
 | EP24BTECH11015 | Kumud Jalori | [@kumudjalori](https://github.com/kumudjalori) |
-| EP24BTECH11016 | Naman Verma | — |
+| EP24BTECH11016 | Naman Verma | [@nmnverma](https://github.com/nmnverma) |
 | EP24BTECH11017 | Nazakar Abhilash | [@abhilashh18](https://github.com/abhilashh18) |
 | EP24BTECH11018 | Nithin Surya S | [@nithinsurya-iith](https://github.com/nithinsurya-iith) |
 | EP24BTECH11019 | Panduru Sri Abish | [@abishpanduru-sys](https://github.com/abishpanduru-sys) |
