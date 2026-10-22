@@ -114,5 +114,12 @@ def modes(q, m, K=1.0, a=1.0):
     m = np.atleast_1d(np.asarray(m, dtype=float))
     w2, e = np.linalg.eigh(dynamical_matrix(q, m, K, a))
     u = e / np.sqrt(m)[:, None]
+
+    # eigh fixes each column only up to a global phase, which at the zone edge
+    # can be a pure i -- taking Re() then gives zero. Rotate so the largest
+    # component of each mode is real and positive.
+    lead = np.argmax(np.abs(u), axis=0)
+    u = u * np.exp(-1j * np.angle(u[lead, np.arange(u.shape[1])]))
+
     u = u / np.abs(u).max(axis=0)  # normalise each mode for plotting
     return np.sqrt(np.clip(w2, 0.0, None)), u

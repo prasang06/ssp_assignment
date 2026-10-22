@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "common"))
 import style
 import phonon as ph
+import _schematic
 
 FIG = os.path.join(os.path.dirname(__file__), "figures")
 
@@ -172,10 +173,57 @@ def fig_dos():
     plt.close(fig)
 
 
+# ---- lattice schematic ----
+
+def fig_schematic():
+    _schematic.make(f"{FIG}/schematic.png")
+
+
+# ---- mode displacements ----
+
+def fig_modes():
+    """Case A at the zone centre and edge: what each branch actually does."""
+    m, K, a, ncell = [1.0, 4.0], 1.0, 1.0, 4
+    p = len(m)
+    colors = style.branch_colors(p)
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 3.8))
+    for row, (q_frac, qlab) in enumerate([(0.0, r"$q=0$"), (1.0, r"$q=\pi/a$")]):
+        q = q_frac * np.pi / a
+        w, u = ph.modes(q, m, K, a)
+        for col, bname in enumerate(["Acoustic", "Optical"]):
+            ax = axes[row, col]
+            for n in range(ncell):
+                for j in range(p):
+                    x = n * a + (j + 0.5) * a / p
+                    d = np.real(u[j, col] * np.exp(1j * q * n * a))
+                    ax.plot([x], [0], marker="o", ms=7 + 4 * (j == 1),
+                            color=colors[j], zorder=3)
+                    if abs(d) > 1e-9:
+                        ax.annotate("", xy=(x + 0.17 * d, 0), xytext=(x, 0),
+                                    arrowprops=dict(arrowstyle="-|>", color="0.15", lw=1.6))
+            ax.axhline(0, color="0.85", lw=0.8, zorder=0)
+            for n in range(ncell + 1):
+                ax.axvline(n * a, color="0.85", lw=0.8, linestyle=(0, (4, 3)), zorder=0)
+            ax.set_title(f"{bname},  {qlab},  " + rf"$\omega={w[col]:.3f}$", fontsize=9.5)
+            ax.set_xlim(-0.25, ncell * a + 0.25)
+            ax.set_ylim(-0.4, 0.4)
+            ax.set_yticks([])
+            ax.set_xticks(range(ncell + 1))
+            ax.set_xlabel("position  ($a$)", fontsize=9)
+
+    fig.suptitle(r"Mode displacements for $m=(1,4)$: arrows show atomic motion", y=1.04)
+    fig.tight_layout()
+    fig.savefig(f"{FIG}/modes.png")
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     style.apply()
     os.makedirs(FIG, exist_ok=True)
+    fig_schematic()
     fig_cases()
+    fig_modes()
     fig_comparison()
     fig_spring_sweep()
     fig_gap_vs_ratio()

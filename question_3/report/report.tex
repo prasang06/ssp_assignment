@@ -92,8 +92,18 @@ control the spectrum.
 
 \subsection{Equations of motion}
 
-Consider a chain of identical unit cells of length $a$. Cell $n$ contains $p$ atoms of masses
-$m_1, \dots, m_p$. Let $u_j^n$ be the displacement of atom $j$ in cell $n$ from its equilibrium
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.86\textwidth]{schematic.png}
+\caption{The model. (a) Three unit cells of the general $p$-atom chain; circle area scales with
+mass, $a$ is the full cell length, and $u_2^{\,n}$ marks a longitudinal displacement from the
+equilibrium site (dashed). (b) For $p=2$ the intra-cell and inter-cell bonds connect the same
+pair of atoms, so both contribute to the single matrix element $D_{12}$.}
+\label{fig:schematic}
+\end{figure*}
+
+Consider a chain of identical unit cells of length $a$, as in Fig.~\ref{fig:schematic}(a).
+Cell $n$ contains $p$ atoms of masses $m_1, \dots, m_p$. Let $u_j^n$ be the displacement of atom $j$ in cell $n$ from its equilibrium
 position. Nearest neighbours are joined by springs of constant $K$, so in the harmonic
 approximation the force on an atom is linear in the \emph{relative} displacements of its two
 neighbours:
@@ -143,7 +153,7 @@ two into every plotted frequency. All results below use the full-cell convention
 
 \paragraph{A caution on the $p=2$ case.} When the cell holds exactly two atoms, the intra-cell
 bond \eqref{eq:Dintra} and the inter-cell bond \eqref{eq:Dinter} occupy the \emph{same} matrix
-element: atom 1 bonds to atom 2 twice, once inside the cell and once across the boundary. The two
+element, as Fig.~\ref{fig:schematic}(b) shows: atom 1 bonds to atom 2 twice, once inside the cell and once across the boundary. The two
 contributions must therefore be added, giving
 $D_{12} = -K\left(1 + e^{-iqa}\right)/\sqrt{m_1 m_2}$. Overwriting rather than accumulating is an
 easy implementation error, and it breaks the physics: the acoustic branch no longer vanishes at
@@ -313,6 +323,7 @@ C & $(1,2,3)$   & 0.6180 & 0.8165--1.1101, 1.5602--1.6180 & 0.1985, 0.4501 & 0.2
 \end{table*}
 
 \subsection{Case A --- strong mass contrast}
+\label{sec:caseA}
 
 With $m_2/m_1 = 4$ the spectrum splits cleanly. The acoustic branch tops out at
 $\omega = 0.7071 = \sqrt{2K/m_2}$ and the optical branch bottoms at
@@ -406,6 +417,18 @@ C & Acoustic  & 0.0000 & 0.6180 \\
 \label{tab:eigen}
 \end{table}
 
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{modes.png}
+\caption{Displacement patterns of the two branches of the $m=(1,4)$ chain, from the
+eigenvectors of $D(q)$. Arrow length is proportional to amplitude; small circles are the light
+atoms, large circles the heavy ones. At $q=0$ the acoustic mode translates every atom equally
+while the optical mode moves the sublattices against each other. At $q=\pi/a$ the two
+sublattices decouple completely: only the heavy atoms move in the acoustic mode, only the light
+atoms in the optical one.}
+\label{fig:modes}
+\end{figure*}
+
 The eigenfrequencies are the natural frequencies of the lattice: a mode excited at $\omega_i(q)$
 oscillates indefinitely at that frequency in the harmonic approximation, and any arbitrary motion
 of the chain decomposes into a superposition of them. Table~\ref{tab:eigen} shows the two limiting
@@ -420,7 +443,10 @@ and the origin of the name "optical".
 
 At $q = \pi/a$ adjacent cells move in antiphase, the shortest wavelength the lattice supports.
 Both branches flatten here, which is why the gap edges in Table~\ref{tab:cases} are attained at
-the boundary.
+the boundary. Figure~\ref{fig:modes} shows the eigenvectors directly, and makes the decoupling
+of Sec.~\ref{sec:caseA} explicit: at the zone edge the acoustic eigenvector is $(0,1)$ and the
+optical one $(1,0)$, so each branch is a single sublattice vibrating while the other stands
+still.
 
 \section{Conclusions}
 
