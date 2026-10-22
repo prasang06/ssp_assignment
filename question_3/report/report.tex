@@ -422,12 +422,15 @@ C & Acoustic  & 0.0000 & 0.6180 \\
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{modes.png}
-\caption{Displacement patterns of the two branches of the $m=(1,4)$ chain, from the
-eigenvectors of $D(q)$. Arrow length is proportional to amplitude; small circles are the light
-atoms, large circles the heavy ones. At $q=0$ the acoustic mode translates every atom equally
-while the optical mode moves the sublattices against each other. At $q=\pi/a$ the two
-sublattices decouple completely: only the heavy atoms move in the acoustic mode, only the light
-atoms in the optical one.}
+\caption{Displacement patterns of the two branches of the $m=(1,4)$ chain. Arrows show the
+\emph{physical} displacement amplitudes $u_j = e_j/\sqrt{m_j}$, not the mass-weighted
+eigenvector components $e_j$ returned by the solver; this is why the light atom swings four
+times as far as the heavy one in the optical mode at $q=0$, keeping $\sum_j m_j u_j = 0$ so the
+cell's centre of mass stays at rest. Small circles are the light atoms, large circles the heavy
+ones. At $q=0$ the acoustic mode translates every atom equally. At $q=\pi/a$ the two sublattices
+decouple completely --- the eigenvectors are exactly $(0,1)$ and $(1,0)$ --- so half the atoms
+carry no arrow at all, and the moving ones reverse from cell to cell through the factor
+$e^{iqna}=(-1)^n$.}
 \label{fig:modes}
 \end{figure*}
 

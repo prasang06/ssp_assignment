@@ -189,9 +189,10 @@ def fig_modes():
     """Case A at the zone centre and edge: what each branch actually does."""
     m, K, a, ncell = [1.0, 4.0], 1.0, 1.0, 4
     p = len(m)
-    colors = style.branch_colors(p)
+    scale = 0.36          # displacement -> data units
+    y_atom, y_arrow = 0.0, 0.30
 
-    fig, axes = plt.subplots(2, 2, figsize=(10, 3.8))
+    fig, axes = plt.subplots(2, 2, figsize=(10, 4.2))
     for row, (q_frac, qlab) in enumerate([(0.0, r"$q=0$"), (1.0, r"$q=\pi/a$")]):
         q = q_frac * np.pi / a
         w, u = ph.modes(q, m, K, a)
@@ -201,22 +202,33 @@ def fig_modes():
                 for j in range(p):
                     x = n * a + (j + 0.5) * a / p
                     d = np.real(u[j, col] * np.exp(1j * q * n * a))
-                    ax.plot([x], [0], marker="o", ms=7 + 4 * (j == 1),
-                            color=colors[j], zorder=3)
+                    # atoms always drawn, sized by mass; stationary ones keep their marker
+                    ax.plot([x], [y_atom], marker="o",
+                            ms=7.5 * (m[j] / m[0]) ** (1 / 3),
+                            color=_schematic.ATOM_COLORS[j],
+                            markeredgecolor="0.15", markeredgewidth=0.8, zorder=3)
                     if abs(d) > 1e-9:
-                        ax.annotate("", xy=(x + 0.17 * d, 0), xytext=(x, 0),
-                                    arrowprops=dict(arrowstyle="-|>", color="0.15", lw=1.6))
-            ax.axhline(0, color="0.85", lw=0.8, zorder=0)
+                        # arrows on their own row so no amplitude hides behind a marker
+                        # head length scales with the arrow, so a short arrow is not
+                        # swallowed by a fixed-size head -- the 4:1 ratio must stay readable
+                        L = scale * d
+                        ax.arrow(x, y_arrow, L, 0, length_includes_head=True,
+                                 head_width=0.052, head_length=min(0.05, 0.34 * abs(L)),
+                                 lw=1.9, fc="0.15", ec="0.15", zorder=4)
+                        ax.plot([x, x], [y_atom + 0.09, y_arrow], color="0.75", lw=0.7,
+                                zorder=1)
+            ax.axhline(y_atom, color="0.88", lw=0.8, zorder=0)
             for n in range(ncell + 1):
-                ax.axvline(n * a, color="0.85", lw=0.8, linestyle=(0, (4, 3)), zorder=0)
-            ax.set_title(f"{bname},  {qlab},  " + rf"$\omega={w[col]:.3f}$", fontsize=9.5)
+                ax.axvline(n * a, color="0.88", lw=0.8, linestyle=(0, (4, 3)), zorder=0)
+            ax.set_title(f"{bname},  {qlab},  " + rf"$\omega={w[col]:.3f}$", fontsize=10)
             ax.set_xlim(-0.25, ncell * a + 0.25)
-            ax.set_ylim(-0.4, 0.4)
+            ax.set_ylim(-0.22, 0.52)
             ax.set_yticks([])
             ax.set_xticks(range(ncell + 1))
             ax.set_xlabel("position  ($a$)", fontsize=9)
 
-    fig.suptitle(r"Mode displacements for $m=(1,4)$: arrows show atomic motion", y=1.04)
+    fig.suptitle(r"Mode displacements for $m=(1,4)$: arrow length $\propto$ "
+                 r"displacement amplitude", y=1.02)
     fig.tight_layout()
     fig.savefig(f"{FIG}/modes.png")
     plt.close(fig)

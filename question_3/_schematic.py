@@ -13,7 +13,7 @@ def radius(m, mref=1.0):
     return 0.085 * (m / mref) ** (1 / 3)
 
 
-def spring(ax, x0, x1, y=0.0, coils=4, amp=0.05, color="0.25", lw=1.3, zorder=1,
+def spring(ax, x0, x1, y=0.0, coils=5, amp=0.06, color="0.25", lw=1.3, zorder=1,
            r0=0.0, r1=0.0):
     """Zigzag between two atoms, drawn edge to edge rather than centre to centre."""
     x0, x1 = x0 + r0, x1 - r1
@@ -42,10 +42,10 @@ def atom(ax, x, m, color, y=0.0, label=None, mref=1.0, dashed=False):
 
 def panel_general(ax):
     """(a) Three cells of a p-atom chain, with a, K and u_j^n defined."""
-    p, ncell, a = 3, 3, 1.0
+    p, ncell, a = 3, 3, 1.6   # cell drawn wide so the springs can breathe
     masses = [1.0, 2.0, 3.0]
     dx = a / p
-    disp = 0.085  # keeps the displaced atom clear of its neighbour
+    disp = 0.15  # scales with the cell width; stays clear of the neighbour
 
     for n in range(ncell):
         for j in range(p):
@@ -60,7 +60,7 @@ def panel_general(ax):
                 ax.annotate("", xy=(x + disp, 0.25), xytext=(x, 0.25),
                             arrowprops=dict(arrowstyle="-|>", color="0.15", lw=1.6,
                                             mutation_scale=14))
-                ax.text(x + disp / 2 + 0.05, 0.285, r"$u_2^{\,n}$", ha="left",
+                ax.text(x + disp / 2 + 0.10, 0.285, r"$u_2^{\,n}$", ha="left",
                         va="bottom", fontsize=11)
                 ax.text(x, -0.24, r"$m_2$", ha="center", va="top", fontsize=11)
             else:
@@ -73,8 +73,8 @@ def panel_general(ax):
     for i in range(len(xs) - 1):
         spring(ax, xs[i], xs[i + 1], r0=rs[i], r1=rs[i + 1])
     spring(ax, xs[-1], xs[-1] + dx, r0=rs[-1])
-    ax.text(-0.30, 0, r"$\cdots$", ha="center", va="center", fontsize=13)
-    ax.text(ncell * a + 0.30, 0, r"$\cdots$", ha="center", va="center", fontsize=13)
+    ax.text(-0.42, 0, r"$\cdots$", ha="center", va="center", fontsize=13)
+    ax.text(ncell * a + 0.42, 0, r"$\cdots$", ha="center", va="center", fontsize=13)
 
     # one spring labelled, not all of them
     ax.text(xs[1] + dx / 2, 0.13, r"$K$", ha="center", va="bottom", fontsize=11)
@@ -90,13 +90,13 @@ def panel_general(ax):
                 arrowprops=dict(arrowstyle="<|-|>", color="0.15", lw=1.2))
     ax.text(1.5 * a, -0.55, r"$a$  (full cell length)", ha="center", va="top", fontsize=11)
 
-    ax.set_xlim(-0.5, ncell * a + 0.5)
+    ax.set_xlim(-0.75, ncell * a + 0.75)
     ax.set_ylim(-0.70, 0.62)
 
 
 def panel_two(ax):
     """(b) p=2: the two bonds that share matrix element D_12."""
-    p, ncell, a = 2, 2, 1.0
+    p, ncell, a = 2, 2, 1.5
     masses = [1.0, 2.5]
     dx = a / p
 
@@ -126,12 +126,12 @@ def panel_two(ax):
         ax.text(0.5 * (x0 + x1), yb + 0.045, lab, ha="center", va="bottom",
                 fontsize=10, color=c)
 
-    ax.set_xlim(-0.6, ncell * a + 0.6)
+    ax.set_xlim(-0.85, ncell * a + 0.85)
     ax.set_ylim(-0.55, 0.95)
 
 
 def make(path):
-    fig, axes = plt.subplots(2, 1, figsize=(7.6, 4.3),
+    fig, axes = plt.subplots(2, 1, figsize=(8.8, 4.0),
                              gridspec_kw=dict(height_ratios=[1.0, 1.05], hspace=0.30))
     panel_general(axes[0])
     panel_two(axes[1])
