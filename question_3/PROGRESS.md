@@ -57,12 +57,20 @@ Everything else maps to a stated requirement or to the validation. Left as is by
   widget exists in session state — so switching preset silently kept the old masses. The key
   now carries the preset name.
 - **`common/style.py`** — shared palette, CVD-validated (worst adjacent pair dE 11.0 deutan).
-- **`make_figures.py`** — 8 figures regenerated from scratch by one command.
+- **`make_figures.py`** — 10 figures regenerated from scratch by one command, including the
+  lattice schematic (`_schematic.py`) and the mode-displacement panel.
 - **`report/report.tex`** — RevTeX (`revtex4-2`, aps/prb/reprint), 14 pages two-column,
   zero overfull boxes. Authors in a flowing APS list, Prasang Das first. Wide figures and
   the six-column table span both columns. Code listings via `listings`, pulled in with
   `\lstinputlisting` so they cannot drift from the sources; excerpt of the matrix assembly in
   the method section, complete sources in a one-column appendix.
+
+### Second bug: eigenvector phase
+`eigh` fixes each eigenvector only up to a global phase, which at q=pi/a came back as a pure i,
+so `Re(u)` was identically zero and the acoustic panel of the mode figure rendered empty.
+`modes()` now rotates each column so its largest component is real and positive. With that, the
+zone-edge eigenvectors are exactly (0,1) and (1,0) — the sublattice decoupling the report had
+only asserted in prose.
 
 ### Bug found and fixed by the tests
 For p=2 the intra-cell and inter-cell bonds share matrix element D[0,1]: atom 1 bonds to atom 2
