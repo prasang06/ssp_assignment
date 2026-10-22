@@ -56,7 +56,13 @@ uv venv --python 3.12 .venv
 uv pip install -r requirements.txt
 ```
 
-Then, in either `question_3/` or `question_5/`:
+Both interfaces are served by one app:
+
+```bash
+.venv/bin/streamlit run streamlit_app.py
+```
+
+Each question also runs on its own. In either `question_3/` or `question_5/`:
 
 ```bash
 ../.venv/bin/python test_phonon.py     # or test_fermi.py — validation checks
@@ -74,6 +80,8 @@ code that produced the results.
 ## Layout
 
 ```
+streamlit_app.py      combined entry point (both questions, one app)
+home.py               landing page for the combined app
 common/style.py       shared matplotlib palette and defaults
 question_3/           phonon.py  app.py  make_figures.py  test_phonon.py  figures/  report/
 question_5/           fermi.py   app.py  make_figures.py  test_fermi.py   figures/  report/

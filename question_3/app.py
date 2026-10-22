@@ -11,12 +11,21 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "common"))
+_HERE = os.path.dirname(os.path.abspath(__file__))
+# when run as a page of streamlit_app.py the entry script's directory is on
+# sys.path, not this one, so add both explicitly
+sys.path.insert(0, os.path.join(_HERE, "..", "common"))
+sys.path.insert(0, _HERE)
 import style
 import phonon as ph
 
 style.apply()
-st.set_page_config(page_title="Phonon Dispersion — 1D Multi-atomic Lattice", layout="wide")
+# only the entry script may configure the page; harmless no-op when this
+# module runs as a page of streamlit_app.py
+try:
+    st.set_page_config(page_title="Phonon Dispersion — 1D Multi-atomic Lattice", layout="wide")
+except Exception:
+    pass
 st.title("Phonon Dispersion in a 1D Multi-atomic Lattice")
 st.caption(r"Solves $D(q)\,e = \omega^2 e$ for a chain of $p$ atoms per unit cell.")
 

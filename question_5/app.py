@@ -11,13 +11,21 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "common"))
+_HERE = os.path.dirname(os.path.abspath(__file__))
+# when run as a page of streamlit_app.py the entry script's directory is on
+# sys.path, not this one, so add both explicitly
+sys.path.insert(0, os.path.join(_HERE, "..", "common"))
+sys.path.insert(0, _HERE)
 import style
 import fermi as f
 
 style.apply()
-st.set_page_config(page_title="Fermi\u2013Dirac Statistics in a Semiconductor",
-                   layout="wide")
+# only the entry script may configure the page; harmless no-op when this
+# module runs as a page of streamlit_app.py
+try:
+    st.set_page_config(page_title="Fermi–Dirac Statistics in a Semiconductor", layout="wide")
+except Exception:
+    pass
 st.title("Fermi\u2013Dirac Statistics in a Semiconductor Crystal")
 st.caption(r"Solves $n=\int D(E)f(E)\,dE$ for the chemical potential $\mu(T)$.")
 
