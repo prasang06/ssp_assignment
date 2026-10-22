@@ -182,22 +182,46 @@ if show_modes:
     w_sel, u_sel = ph.modes(q_sel, masses, K, a)
 
     ncells = 4
-    fig, ax = plt.subplots(figsize=(8, 2.4))
+    y_atom, y_arrow = 0.0, 0.30 * a      # arrows sit on their own row above the chain
+    atom_colors = [style.ACOUSTIC] + style.OPTICAL
+
+    # real part of u_j * exp(iqna): the displacement at this instant. Collected
+    # first so the arrow scale can be set from the largest one.
+    disp = np.array([[np.real(u_sel[j, b] * np.exp(1j * q_sel * n * a))
+                      for j in range(p)] for n in range(ncells)])
+    dmax = np.abs(disp).max()
+    # longest arrow reaches 70% of the atom spacing, whatever p and however u is normalised
+    scale = 0.7 * (a / p) / dmax if dmax > 1e-9 else 0.0
+    mmin = min(masses)
+
+    fig, ax = plt.subplots(figsize=(8, 2.6))
     for n in range(ncells):
         for j in range(p):
-            x0 = n * a + j * a / p
-            # real part of u_j * exp(iqna): the displacement at this instant
-            d = np.real(u_sel[j, b] * np.exp(1j * q_sel * n * a))
-            ax.plot([x0], [0], marker="o", ms=9,
-                    color=style.branch_colors(p)[j % p], zorder=3)
-            ax.arrow(x0, 0, 0.32 * a * d / p * ncells, 0, head_width=0.07,
-                     head_length=0.04, fc=style.EXACT, ec=style.EXACT, zorder=2,
-                     length_includes_head=True)
-    ax.axhline(0, color="0.8", lw=0.8, zorder=0)
-    ax.set_xlabel("Position along the chain  ($a$)")
+            x = n * a + (j + 0.5) * a / p
+            d = disp[n, j]
+            # atoms always drawn, sized by mass, so stationary ones stay visible
+            ax.plot([x], [y_atom], marker="o",
+                    ms=min(16.0, 7.5 * (masses[j] / mmin) ** (1 / 3)),
+                    color=atom_colors[j % len(atom_colors)],
+                    markeredgecolor="0.15", markeredgewidth=0.8, zorder=3)
+            if abs(d) > 1e-9:
+                # head length scales with the arrow, so a short arrow is not
+                # swallowed by a fixed-size head and amplitude ratios stay readable
+                L = scale * d
+                ax.arrow(x, y_arrow, L, 0, length_includes_head=True,
+                         head_width=0.052 * a, head_length=min(0.05 * a, 0.34 * abs(L)),
+                         lw=1.9, fc="0.15", ec="0.15", zorder=4)
+                ax.plot([x, x], [y_atom + 0.09 * a, y_arrow], color="0.75", lw=0.7,
+                        zorder=1)
+    ax.axhline(y_atom, color="0.88", lw=0.8, zorder=0)
+    for n in range(ncells + 1):
+        ax.axvline(n * a, color="0.88", lw=0.8, linestyle=(0, (4, 3)), zorder=0)
+    ax.set_xlim(-0.25 * a, (ncells + 0.25) * a)
+    ax.set_ylim(-0.22 * a, 0.52 * a)
     ax.set_yticks([])
-    ax.set_xlim(-0.3, ncells * a + 0.3)
-    ax.set_ylim(-0.5, 0.5)
+    ax.set_xticks([n * a for n in range(ncells + 1)])
+    ax.set_xticklabels(range(ncells + 1))
+    ax.set_xlabel("Position along the chain  ($a$)")
     ax.set_title(f"{branch} mode at $q = {q_frac:.2f}\\,\\pi/a$,  "
                  f"$\\omega = {w_sel[b]:.4f}$")
     st.pyplot(fig)
