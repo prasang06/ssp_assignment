@@ -12,3 +12,12 @@ __pycache__/
 # Scratch
 scratch/
 *.tmp
+
+# LaTeX build artefacts
+*.aux
+*.log
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.toc

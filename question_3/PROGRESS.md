@@ -37,4 +37,20 @@ phonopy/ASE and the notebook workflow as off-requirement. It also uses a differe
   beyond the PDF's single-$K$ wording; the UI defaults to a single $K$.
 
 ## Done
-_(nothing yet)_
+- **Environment** — `.venv` on Python 3.12 (uv); numpy, scipy, matplotlib, streamlit, pandas
+  pinned in `requirements.txt`.
+- **`phonon.py`** — dynamical matrix, dispersion, branch limits, gaps, DOS, sound velocity,
+  and the two closed forms used for validation.
+- **`test_phonon.py`** — all five SCOPE.md checks pass. Diatomic to 4.5e-14, monatomic to
+  1.6e-15, sound velocity to 1.6e-8, omega_acoustic(0) = 0 exactly, gap closure confirmed.
+- **`app.py`** — Streamlit interface; verified serving HTTP 200 with no runtime errors.
+- **`common/style.py`** — shared palette, CVD-validated (worst adjacent pair dE 11.0 deutan).
+- **`make_figures.py`** — 8 figures regenerated from scratch by one command.
+- **`report/report.tex`** — 9 pages, compiles clean with latexmk. Prasang Das listed first.
+
+### Bug found and fixed by the tests
+For p=2 the intra-cell and inter-cell bonds share matrix element D[0,1]: atom 1 bonds to atom 2
+both inside the cell and across the boundary. The first implementation overwrote instead of
+accumulating, which broke translational invariance — omega_acoustic(0) came out at 0.59 instead
+of 0. Four of the five checks caught it. Documented in the report as a caution, since it is an
+easy error to repeat.
