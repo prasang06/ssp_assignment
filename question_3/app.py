@@ -24,18 +24,20 @@ st.caption(r"Solves $D(q)\,e = \omega^2 e$ for a chain of $p$ atoms per unit cel
 
 with st.sidebar:
     st.header("Lattice parameters")
-    p = st.slider("Number of atoms per unit cell, $p$", 1, 5, 2)
-
     st.subheader("Masses")
     preset = st.selectbox("Preset", ["Custom", "Case A: (1, 4)", "Case B: (1, 1.1)",
                                      "Case C: (1, 2, 3)"])
     defaults = {"Case A: (1, 4)": [1.0, 4.0],
                 "Case B: (1, 1.1)": [1.0, 1.1],
                 "Case C: (1, 2, 3)": [1.0, 2.0, 3.0]}
+
+    # a preset fixes p, so show it rather than a slider that would disagree with it
     if preset in defaults:
-        p = len(defaults[preset])
         base = defaults[preset]
+        p = len(base)
+        st.caption(f"Atoms per unit cell: $p = {p}$  (set by preset)")
     else:
+        p = st.slider("Number of atoms per unit cell, $p$", 1, 5, 2)
         base = [1.0 + i for i in range(p)]
 
     # the key carries the preset: a keyed widget ignores `value` once it exists,

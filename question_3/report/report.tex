@@ -295,6 +295,32 @@ ones, each gap shaded across the zone and annotated with its width, and tables g
 frequency limits of every branch, every bandgap, the analytic sound velocity, and the
 eigenfrequencies at $q=0$ and $q=\pi/a$. The density of states is plotted underneath.
 
+Figures~\ref{fig:ui} and \ref{fig:ui2} show the interface running on two of the demonstration cases. Switching
+preset from the diatomic Case A to the triatomic Case C changes the number of mass fields, adds
+a third branch to the plot, and produces a second bandgap row in the table --- all from the same
+code path, with no special-casing for the number of atoms per cell. The values displayed agree
+with Tables~\ref{tab:cases} and \ref{tab:eigen} to the digits shown.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{ui_case_a_top.png}
+\caption{The interface on Case A ($p=2$). The sidebar carries the lattice parameters; the main
+panel gives the dispersion with the bandgap shaded and annotated, the per-branch frequency
+limits, every bandgap, the analytic sound velocity, and the zone-centre and zone-edge
+eigenfrequencies. Density-of-states and mode-displacement panels continue below the region
+shown.}
+\label{fig:ui}
+\end{figure*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{ui_case_c_top.png}
+\caption{The same interface on Case C ($p=3$). Selecting the preset adds a third mass field, a
+third branch, and a second row to the bandgap table, with no change of code path. The displayed
+values match Tables~\ref{tab:cases} and \ref{tab:eigen}.}
+\label{fig:ui2}
+\end{figure*}
+
 \section{Results}
 
 All results use $K=1$, $a=1$ and quote frequencies in units of $\sqrt{K/m_1}$. Three
@@ -473,26 +499,6 @@ textbook monatomic and diatomic solutions to within $10^{-13}$. Applying it:
 
 The obvious limitations are the harmonic approximation, which excludes thermal expansion and
 phonon lifetimes, and the restriction to nearest-neighbour coupling in one dimension.
-
-\section{Contributions}
-
-\begin{table*}[t]
-\centering
-\small
-\begin{tabular}{ll}
-\toprule
-\textbf{Part} & \textbf{Members} \\
-\midrule
-Derivation of the equations of motion and dispersion relation & \\
-Implementation of the dynamical matrix and eigensolver & \\
-Validation against analytic limits & \\
-Interactive interface & \\
-Figures, parameter studies and interpretation & \\
-Report preparation and references & \\
-\bottomrule
-\end{tabular}
-\caption{To be completed before submission.}
-\end{table*}
 
 \section*{Reproducing this work}
 

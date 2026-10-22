@@ -50,6 +50,18 @@ Reviewed every figure at full size. Two defects found and fixed:
   Replaced with an annotation. K also moved from viridis to a single-hue ramp, since K is an
   ordered quantity, not a categorical one.
 
+## Interface screenshots (done)
+Captured headlessly with Playwright 1.48 (1.64 dropped Ubuntu 20.04 support) driving the real
+app: `_shots.py` switches the preset dropdown through Cases A/B/C and screenshots each at 2x
+scale. Full-page shots plus cropped versions for the report figures.
+
+Bug found while reviewing the captures: the "atoms per unit cell" slider still displayed its own
+stale value (2) while a preset had set p=3 and three mass fields were shown. The slider is now
+replaced by a caption when a preset is active, so the sidebar cannot contradict itself.
+
+Table IV (contributions) removed from the report on request. Note the assignment PDF asks for
+contributors and who did which part -- that now needs to live somewhere outside the report.
+
 ## Open questions
 - None blocking. Per-bond spring constants ($K_1 \dots K_p$) are treated as an optional extra
   beyond the PDF's single-$K$ wording; the UI defaults to a single $K$.
