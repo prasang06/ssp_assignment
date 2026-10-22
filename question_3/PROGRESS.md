@@ -8,6 +8,14 @@
   `eigvalsh` per q-point. Environment surveyed: system python3 is 3.8 with no packages;
   `uv` and python3.12 are available, so the venv will be built with those.
 
+## Awaiting review
+`PLAN.md` written and ready for review. Work starts once it is approved.
+
+Source note: `AI_STUDY.md` (gitignored, supplied by the user) was assessed against the PDF.
+Kept its validation formulas, DOS histogram idea and references; dropped the 2D honeycomb case,
+phonopy/ASE and the notebook workflow as off-requirement. It also uses a different convention for
+`a` than `SCOPE.md` — see the trap noted in `PLAN.md`.
+
 ## Next up
 1. `uv venv --python 3.12` + install numpy/scipy/matplotlib/streamlit.
 2. `phonon.py` — dynamical matrix, branch sorting, band limits, gap finder.
