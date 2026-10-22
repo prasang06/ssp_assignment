@@ -126,18 +126,12 @@ def panel_two(ax):
         ax.text(0.5 * (x0 + x1), yb + 0.045, lab, ha="center", va="bottom",
                 fontsize=10, color=c)
 
-    ax.text(a, -0.50,
-            r"Both bonds join the same pair $m_1\!-\!m_2$: one inside cell $n$, one across the"
-            "\n" r"boundary. Both land in the same element $D_{12}$, so the implementation must"
-            "\n" r"$\it{accumulate}$ their contributions rather than overwrite one with the other.",
-            ha="center", va="top", fontsize=9.5, linespacing=1.5)
-
     ax.set_xlim(-0.6, ncell * a + 0.6)
-    ax.set_ylim(-1.05, 0.95)
+    ax.set_ylim(-0.55, 0.95)
 
 
 def make(path):
-    fig, axes = plt.subplots(2, 1, figsize=(7.6, 5.1),
+    fig, axes = plt.subplots(2, 1, figsize=(7.6, 4.3),
                              gridspec_kw=dict(height_ratios=[1.0, 1.05], hspace=0.30))
     panel_general(axes[0])
     panel_two(axes[1])

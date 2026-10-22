@@ -94,11 +94,13 @@ control the spectrum.
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=0.72\textwidth]{schematic.png}
+\includegraphics[width=0.60\textwidth]{schematic.png}
 \caption{The model. (a) Three unit cells of the general $p$-atom chain; circle area scales with
 mass, $a$ is the full cell length, and $u_2^{\,n}$ marks a longitudinal displacement from the
-equilibrium site (dashed). (b) For $p=2$ the intra-cell and inter-cell bonds connect the same
-pair of atoms, so both contribute to the single matrix element $D_{12}$.}
+equilibrium site (dashed). (b) The $p=2$ case. Both bonds join the same pair $m_1$--$m_2$, one
+inside cell $n$ and one across the boundary, so both land in the same matrix element $D_{12}$
+and the implementation must \emph{accumulate} their contributions rather than overwrite one with
+the other --- see Sec.~\ref{sec:theory}.}
 \label{fig:schematic}
 \end{figure*}
 
