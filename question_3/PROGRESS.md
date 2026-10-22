@@ -46,7 +46,9 @@ phonopy/ASE and the notebook workflow as off-requirement. It also uses a differe
 - **`app.py`** — Streamlit interface; verified serving HTTP 200 with no runtime errors.
 - **`common/style.py`** — shared palette, CVD-validated (worst adjacent pair dE 11.0 deutan).
 - **`make_figures.py`** — 8 figures regenerated from scratch by one command.
-- **`report/report.tex`** — 9 pages, compiles clean with latexmk. Prasang Das listed first.
+- **`report/report.tex`** — RevTeX (`revtex4-2`, aps/prb/reprint), 7 pages two-column,
+  zero overfull boxes. Authors in a flowing APS list, Prasang Das first. Wide figures and
+  the six-column table span both columns; the diatomic equation uses `widetext`.
 
 ### Bug found and fixed by the tests
 For p=2 the intra-cell and inter-cell bonds share matrix element D[0,1]: atom 1 bonds to atom 2

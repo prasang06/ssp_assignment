@@ -1,39 +1,32 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[aps,prb,reprint,nofootinbib]{revtex4-2}
 
-\usepackage[margin=2.4cm]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{caption}
-\usepackage{siunitx}
-\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue]{hyperref}
+\usepackage{hyperref}
 
 \graphicspath{{../figures/}}
-\captionsetup{font=small,labelfont=bf}
-\setlength{\parskip}{0.4em}
-\setlength{\parindent}{0pt}
-
-\title{\textbf{Phonon Dispersion in a One-Dimensional Multi-atomic Lattice}\\[0.3em]
-\large Solid State Physics --- Assignment 1, Question 3}
-
-\author{%
-\textbf{Prasang Das} \quad EP24BTECH11020 \\[0.6em]
-\normalsize
-\begin{tabular}{ll@{\hskip 2.2em}ll}
-Guhan Dhanasekharan & EP24BTECH11011 & Nithin Surya S     & EP24BTECH11018 \\
-Kumud Jalori        & EP24BTECH11015 & Panduru Sri Abish  & EP24BTECH11019 \\
-Naman Verma         & EP24BTECH11016 & Praveen Kumar      & EP24BTECH11021 \\
-Nazakar Abhilash    & EP24BTECH11017 & S Haresh           & EP24BTECH11022 \\
-                    &                & S Kshiteesh        & EP24BTECH11023 \\
-\end{tabular}
-}
-\date{\today}
 
 \begin{document}
-\maketitle
+
+\title{Phonon Dispersion in a One-Dimensional Multi-atomic Lattice%
+\thanks{Solid State Physics, Assignment 1 --- Question 3.}}
+
+\author{Prasang Das\,\,(EP24BTECH11020)}
+\author{Guhan Dhanasekharan\,\,(EP24BTECH11011)}
+\author{Kumud Jalori\,\,(EP24BTECH11015)}
+\author{Naman Verma\,\,(EP24BTECH11016)}
+\author{Nazakar Abhilash\,\,(EP24BTECH11017)}
+\author{Nithin Surya S\,\,(EP24BTECH11018)}
+\author{Panduru Sri Abish\,\,(EP24BTECH11019)}
+\author{Praveen Kumar\,\,(EP24BTECH11021)}
+\author{S Haresh\,\,(EP24BTECH11022)}
+\author{S Kshiteesh\,\,(EP24BTECH11023)}
+\affiliation{Department of Engineering Physics}
+
+\date{\today}
 
 \begin{abstract}
-\noindent
 We compute the phonon dispersion of a one-dimensional lattice carrying $p$ atoms of arbitrary
 mass per unit cell, coupled by nearest-neighbour springs. The equations of motion are reduced by
 a Bloch ansatz to a $p \times p$ Hermitian eigenvalue problem, which we diagonalise numerically
@@ -46,6 +39,8 @@ controlled by mass contrast and closes entirely when the masses are equal, while
 constant sets the overall frequency scale as $\sqrt{K}$ without altering the shape of the
 spectrum.
 \end{abstract}
+
+\maketitle
 
 \section{Introduction}
 
@@ -155,11 +150,13 @@ For $p=1$ (mass $m$) the matrix is $1\times1$ and
   \label{eq:mono}
 \end{equation}
 For $p=2$ (masses $m_1, m_2$) the $2\times2$ determinant gives
+\begin{widetext}
 \begin{equation}
   \omega_\pm^2 = K\left(\frac{1}{m_1}+\frac{1}{m_2}\right)
     \pm K\sqrt{\left(\frac{1}{m_1}+\frac{1}{m_2}\right)^2 - \frac{4\sin^2(qa/2)}{m_1 m_2}},
   \label{eq:di}
 \end{equation}
+\end{widetext}
 with $\omega_-$ acoustic and $\omega_+$ optical. At the zone boundary these reduce to
 $\omega_- = \sqrt{2K/m_{>}}$ and $\omega_+ = \sqrt{2K/m_{<}}$, where $m_{>}$ and $m_{<}$ are the
 larger and smaller mass --- so the gap at the zone edge is set purely by the mass contrast and
@@ -190,7 +187,7 @@ is why the interface can recompute the full spectrum on every slider movement.
 
 Five checks run in \texttt{test\_phonon.py}; all pass.
 
-\begin{table}[h]
+\begin{table*}[t]
 \centering
 \small
 \begin{tabular}{llr}
@@ -207,14 +204,14 @@ Gap closure                      & equal masses leave no gap               & pas
 \end{tabular}
 \caption{Validation results. The first two columns are maximum absolute errors over the zone; the
 zone-folding figure is limited by the finite $q$ grid, not by the method.}
-\end{table}
+\end{table*}
 
 Figure~\ref{fig:validation} shows the diatomic check graphically: the numerically obtained points
 lie on the analytic curves everywhere in the zone.
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.62\textwidth]{validation.png}
+\includegraphics[width=\columnwidth]{validation.png}
 \caption{Numerical eigenfrequencies (markers) against the closed-form diatomic solution
 Eq.~\eqref{eq:di} (grey), for $m=(1,4)$, $K=1$.}
 \label{fig:validation}
@@ -237,15 +234,15 @@ eigenfrequencies at $q=0$ and $q=\pi/a$. The density of states is plotted undern
 All results use $K=1$, $a=1$ and quote frequencies in units of $\sqrt{K/m_1}$. Three
 mass/spring combinations are compared.
 
-\begin{figure}[h]
+\begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{comparison.png}
 \caption{Dispersion for the three cases on a common frequency scale. Shaded bands are forbidden
 frequency ranges. The acoustic branch starts linearly from the origin in all three.}
 \label{fig:comparison}
-\end{figure}
+\end{figure*}
 
-\begin{table}[h]
+\begin{table*}[t]
 \centering
 \small
 \begin{tabular}{llrrrr}
@@ -259,7 +256,7 @@ C & $(1,2,3)$   & 0.6180 & 0.8165--1.1101, 1.5602--1.6180 & 0.1985, 0.4501 & 0.2
 \end{tabular}
 \caption{Computed branch limits, gaps and sound velocities, in units of $\sqrt{K/m_1}$.}
 \label{tab:cases}
-\end{table}
+\end{table*}
 
 \subsection{Case A --- strong mass contrast}
 
@@ -281,7 +278,7 @@ being an independent property of the lattice. Figure~\ref{fig:gap} traces this d
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=0.56\textwidth]{gap_vs_ratio.png}
+\includegraphics[width=\columnwidth]{gap_vs_ratio.png}
 \caption{Gap width against mass ratio for a diatomic chain. The gap grows monotonically from zero
 at $m_2 = m_1$; there is no threshold ratio below which a gap fails to appear.}
 \label{fig:gap}
@@ -298,13 +295,13 @@ appear in the density of states as a sharp peak.
 
 \subsection{Effect of the spring constant}
 
-\begin{figure}[h]
+\begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{spring_sweep.png}
 \caption{Left: Case A dispersion at four spring constants. Right: the same curves divided by
 $\sqrt{K}$, collapsing onto a single pair.}
 \label{fig:spring}
-\end{figure}
+\end{figure*}
 
 The spring constant enters \eqref{eq:Ddiag}--\eqref{eq:Dinter} as an overall multiplier, so
 $D(q) \propto K$ and therefore $\omega \propto \sqrt{K}$ at every $q$. Figure~\ref{fig:spring}
@@ -316,13 +313,13 @@ $K$ sets only its scale.
 
 \subsection{Density of states}
 
-\begin{figure}[h]
+\begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{dos.png}
 \caption{Phonon density of states for the three cases, from a histogram of $\omega$ over a dense
 $q$ mesh. Empty regions are the bandgaps of Table~\ref{tab:cases}.}
 \label{fig:dos}
-\end{figure}
+\end{figure*}
 
 The density of states $g(\omega)$ counts modes per unit frequency. It is zero inside every gap,
 which is what "forbidden frequency range" means in practice: an incident wave at such a frequency
@@ -394,7 +391,7 @@ phonon lifetimes, and the restriction to nearest-neighbour coupling in one dimen
 
 \section{Contributions}
 
-\begin{table}[h]
+\begin{table*}[t]
 \centering
 \small
 \begin{tabular}{ll}
@@ -410,17 +407,18 @@ Report preparation and references & \\
 \bottomrule
 \end{tabular}
 \caption{To be completed before submission.}
-\end{table}
+\end{table*}
 
 \section*{Reproducing this work}
 
 \begin{verbatim}
 uv venv --python 3.12 .venv
-uv pip install numpy scipy matplotlib streamlit pandas
+uv pip install numpy scipy matplotlib \
+     streamlit pandas
 cd question_3
-python test_phonon.py     # validation checks
-python make_figures.py    # regenerates every figure
-streamlit run app.py      # interactive interface
+python test_phonon.py    # checks
+python make_figures.py   # figures
+streamlit run app.py     # interface
 \end{verbatim}
 
 \begin{thebibliography}{9}
