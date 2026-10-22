@@ -160,8 +160,9 @@ if show_dos:
     ax.set_ylabel(r"$g(\omega)$")
     st.pyplot(fig)
     plt.close(fig)
-    st.caption("Peaks are van Hove singularities, where a branch flattens and many "
-               "q-states share one frequency.")
+    st.caption("Normalised per unit cell, so the area under the curve is the number of "
+               "branches p. Peaks are van Hove singularities, where a branch flattens "
+               "and many q-states share one frequency.")
 
 # ---- mode displacements ----
 
