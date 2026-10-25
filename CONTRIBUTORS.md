@@ -16,37 +16,3 @@ semiconductor crystal).
 | EP24BTECH11021 | Praveen Kumar | [@Praveen-Kumar-8](https://github.com/Praveen-Kumar-8) |
 | EP24BTECH11022 | S Haresh | [@Danger-Player](https://github.com/Danger-Player) |
 | EP24BTECH11023 | S Kshiteesh | [@Skiddy05](https://github.com/Skiddy05) |
-
-## Who did what
-
-The assignment requires each part to be attributed. Fill in the names against each area before
-submission.
-
-### Question 3 — Phonon dispersion
-
-| Part | Members |
-|---|---|
-| Derivation of the equations of motion and dispersion relation | |
-| Dynamical matrix and eigensolver (`phonon.py`) | |
-| Validation against analytic limits (`test_phonon.py`) | |
-| Interactive interface (`app.py`) | |
-| Figures and parameter studies (`make_figures.py`) | |
-| Report writing and references | |
-
-### Question 5 — Fermi–Dirac statistics
-
-| Part | Members |
-|---|---|
-| Theory: Fermi–Dirac statistics, density of states, chemical potential | |
-| Carrier-density integral and root solver (`fermi.py`) | |
-| Validation against the Boltzmann, degenerate and Sommerfeld limits (`test_fermi.py`) | |
-| Interactive interface (`app.py`) | |
-| Figures and parameter sweeps (`make_figures.py`) | |
-| Report writing and references | |
-
-### Presentation
-
-| Part | Members |
-|---|---|
-| Slides | |
-| Speaking | |
