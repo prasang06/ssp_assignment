@@ -206,7 +206,9 @@ vanishes when $m_1 = m_2$.
 The procedure is deliberately direct; no iteration or convergence criterion is involved.
 
 \begin{enumerate}
-  \item Build a grid of $n_q$ wavevectors spanning the first Brillouin zone.
+  \item Build a grid of $n_q$ wavevectors spanning the first Brillouin zone. $n_q$ is kept odd
+        so that the grid contains $q=0$ as well as $\pm\pi/a$: in a nearest-neighbour chain the
+        branch extrema, and hence the gap edges, sit at exactly those points.
   \item At each $q$, assemble $D(q)$ from \eqref{eq:Ddiag}--\eqref{eq:Dinter} as a complex
         $p \times p$ array, accumulating the inter-cell bond as noted above.
   \item Diagonalise with \texttt{numpy.linalg.eigvalsh}, the solver for Hermitian matrices. It
@@ -214,9 +216,14 @@ The procedure is deliberately direct; no iteration or convergence criterion is i
         want, so no sorting step is needed.
   \item Take $\omega = \sqrt{\omega^2}$, clipping values at zero first: at $q=0$ the acoustic
         eigenvalue is zero up to rounding and can emerge as a small negative number, whose square
-        root would be \texttt{nan}.
+        root would be \texttt{nan}. Only round-off-sized negatives, below
+        $100\,\varepsilon\,\lVert D\rVert$, are clipped; anything more negative means a
+        mechanically unstable lattice (for instance $K<0$) and is reported as an error rather than
+        silently returned as $\omega=0$.
   \item Extract the per-branch minima and maxima, and identify a gap between branches $i$ and
-        $i+1$ whenever $\min_q \omega_{i+1} > \max_q \omega_i$.
+        $i+1$ whenever $\min_q \omega_{i+1} - \max_q \omega_i$ exceeds $10^{-9}\,\omega_{\max}$.
+        The threshold is relative so that the result does not depend on the units of $K$ and
+        $m$.
 \end{enumerate}
 
 The cost is $n_q$ diagonalisations of a $p \times p$ matrix, negligible for the sizes here, which
@@ -227,20 +234,24 @@ rest of the codebase computes derived quantities, validates them, or draws them.
 Listing~\ref{lst:core} is the implementation, reproduced verbatim from
 \texttt{phonon.py}.
 
-\begin{lstlisting}[caption={Construction of the dynamical matrix. The \texttt{+=} on the
-inter-cell bond is the subtlety discussed in Sec.~\ref{sec:theory}.},label={lst:core},
+\begin{lstlisting}[caption={Construction of the dynamical matrix for $p\ge2$. \texttt{K} holds one
+spring constant per bond, \texttt{K[j]} joining atom $j$ to $j+1$ and \texttt{K[-1]} the inter-cell
+bond; a scalar $K$ is expanded to equal values, the case used throughout this report. The
+\texttt{+=} on the inter-cell bond is the subtlety discussed in Sec.~\ref{sec:theory}.},label={lst:core},
 firstnumber=1]
+sm = np.sqrt(m)     # sqrt(m_j)*sqrt(m_k): cannot overflow
 D = np.zeros((p, p), dtype=complex)
-np.fill_diagonal(D, 2.0 * K / m)
+# each atom sits between the bond on its left and on its right
+np.fill_diagonal(D, (np.roll(K, 1) + K) / m)
 
 # intra-cell bonds
 for j in range(p - 1):
-    c = -K / np.sqrt(m[j] * m[j + 1])
+    c = -K[j] / (sm[j] * sm[j + 1])
     D[j, j + 1] = c
     D[j + 1, j] = c
 
 # inter-cell bond, carries all the q-dependence
-c = -K * np.exp(-1j * q * a) / np.sqrt(m[0] * m[-1])
+c = -K[-1] * np.exp(-1j * q * a) / (sm[0] * sm[-1])
 D[0, -1] += c
 D[-1, 0] += np.conj(c)
 
@@ -251,7 +262,7 @@ omega = np.sqrt(np.clip(w2, 0.0, None))
 
 \subsection{Validation}
 
-Five checks run in \texttt{test\_phonon.py}; all pass.
+Seven checks run in \texttt{test\_phonon.py}; all pass.
 
 \begin{table*}[t]
 \centering
@@ -262,14 +273,18 @@ Five checks run in \texttt{test\_phonon.py}; all pass.
 \midrule
 Diatomic vs Eq.~\eqref{eq:di}    & the general code in the solvable case   & $4.5\times10^{-14}$ \\
 Monatomic vs Eq.~\eqref{eq:mono} & the $p=1$ wrap-around branch            & $1.6\times10^{-15}$ \\
-Zone folding                     & equal masses in a $3a$ cell unfold onto Eq.~\eqref{eq:mono} & $1.4\times10^{-4}$ \\
+Zone folding                     & equal masses in a $3a$ cell unfold onto Eq.~\eqref{eq:mono} at matched $q$ & $3.5\times10^{-14}$ \\
 Sound velocity                   & $q\to0$ slope against Eq.~\eqref{eq:vs} & $1.6\times10^{-8}$ \\
 $\omega_1(0)=0$                  & translational invariance                & $0$ exactly \\
 Gap closure                      & equal masses leave no gap               & pass \\
+Per-bond springs                 & unequal bonds keep $\omega_1(0)=0$ and the series-spring $v_s$ & pass \\
+Robustness                       & no \texttt{nan} or overflow; gaps unit-independent; $K<0$ rejected & pass \\
 \bottomrule
 \end{tabular}
-\caption{Validation results. The first two columns are maximum absolute errors over the zone; the
-zone-folding figure is limited by the finite $q$ grid, not by the method.}
+\caption{Validation results. The first three are maximum absolute errors over the zone. The
+zone-folding check compares each frequency with the monatomic one at the corresponding unfolded
+wavevector, so it agrees to round-off. The last row groups regression checks for numerical edge
+cases: equal masses, extreme mass ratios and magnitudes, and unphysical input.}
 \end{table*}
 
 Figure~\ref{fig:validation} shows the diatomic check graphically: the numerically obtained points
@@ -294,6 +309,15 @@ The main panel shows the dispersion with the acoustic branch drawn separately fr
 ones, each gap shaded across the zone and annotated with its width, and tables giving the
 frequency limits of every branch, every bandgap, the analytic sound velocity, and the
 eigenfrequencies at $q=0$ and $q=\pi/a$. The density of states is plotted underneath.
+Frequencies are shown in the units implied by the inputs, $\omega\propto\sqrt{K/m}$, and equal
+units of $\sqrt{K/m_1}$ only when $K=m_1=1$, as in every result below.
+
+Two situations are flagged rather than plotted silently. When every mass is equal the true period
+is $a/p$, so the upper branches are the acoustic branch folded back into the smaller zone; they
+are labelled ``folded acoustic'' rather than optical. When the selected branch is degenerate with
+another at the chosen $q$, the mode-displacement panel warns that the drawn pattern is one
+arbitrary member of a degenerate pair. Inputs are bounded, and anything that would make $D(q)$
+non-finite or give a negative $\omega^2$ produces an error message rather than a crash.
 
 Figures~\ref{fig:ui} and \ref{fig:ui2} show the interface running on two of the demonstration cases. Switching
 preset from the diatomic Case A to the triatomic Case C changes the number of mass fields, adds
@@ -412,7 +436,9 @@ $K$ sets only its scale.
 \caption{Phonon density of states for the three cases, from a histogram of $\omega$ over a dense
 $q$ mesh, normalised per unit cell so each panel integrates to its branch count $p$. Empty
 regions are the bandgaps of Table~\ref{tab:cases}. A histogram resolves the van Hove peaks but
-cannot represent the divergence itself: peak heights are set partly by the bin width.}
+cannot represent the divergence itself: a $1/\sqrt{\omega-\omega_0}$ peak grows as the bins
+shrink. All three panels therefore use one common set of bins (width $8.1\times10^{-3}$), so
+that peak heights can be compared across panels, though not read as absolute values.}
 \label{fig:dos}
 \end{figure*}
 
@@ -422,7 +448,11 @@ which is what "forbidden frequency range" means in practice: an incident wave at
 finds no mode to propagate in and is reflected. The sharp peaks are van Hove singularities,
 occurring where a branch has zero slope --- at the zone centre and boundary, and across the whole
 of a flat branch. Case C's flat upper optical branch produces the most pronounced peak of the
-three, exactly as its shape in Figure~\ref{fig:comparison} predicts.
+three, exactly as its shape in Figure~\ref{fig:comparison} predicts. The bin-independent way to
+say this is through the bandwidth: that branch spans only $1.5602$--$1.6180$, a width of
+$0.058$, so its one state per cell is squeezed into a window about three times narrower than
+the next-narrowest branch (Case A's optical branch, width $0.167$) and five times narrower than
+Case C's own middle branch.
 
 \subsection{Eigenfrequencies and their significance}
 
@@ -457,7 +487,7 @@ eigenvector components $e_j$ returned by the solver; this is why the light atom 
 times as far as the heavy one in the optical mode at $q=0$, keeping $\sum_j m_j u_j = 0$ so the
 cell's centre of mass stays at rest. Small circles are the light atoms, large circles the heavy
 ones. At $q=0$ the acoustic mode translates every atom equally. At $q=\pi/a$ the two sublattices
-decouple completely --- the eigenvectors are exactly $(0,1)$ and $(1,0)$ --- so half the atoms
+decouple completely --- for $m_1\neq m_2$ the eigenvectors are exactly $(0,1)$ and $(1,0)$ --- so half the atoms
 carry no arrow at all, and the moving ones reverse from cell to cell through the factor
 $e^{iqna}=(-1)^n$.}
 \label{fig:modes}
@@ -471,8 +501,9 @@ cases.
 At $q = 0$ all cells move identically. The acoustic eigenvalue is exactly zero in every case,
 since translating the whole crystal stretches no spring. The optical frequencies there are
 nonzero because the atoms inside a cell move against each other --- for Case A, $1.5811 =
-\sqrt{2K(1/m_1 + 1/m_2)}$, the frequency of two masses vibrating on a shared spring about their
-common centre of mass. This is the mode that couples to infrared light in a real ionic crystal,
+\sqrt{2K(1/m_1 + 1/m_2)} = \sqrt{2K/\mu}$, with $\mu$ the reduced mass. Two masses on a
+single spring would give $\sqrt{K/\mu}$; the factor 2 appears because each atom sits between two
+springs, and in this mode both stretch by the same amount, so the restoring force is doubled. This is the mode that couples to infrared light in a real ionic crystal,
 and the origin of the name "optical".
 
 At $q = \pi/a$ adjacent cells move in antiphase, the shortest wavelength the lattice supports.
@@ -480,7 +511,10 @@ Both branches flatten here, which is why the gap edges in Table~\ref{tab:cases} 
 the boundary. Figure~\ref{fig:modes} shows the eigenvectors directly, and makes the decoupling
 of Sec.~\ref{sec:caseA} explicit: at the zone edge the acoustic eigenvector is $(0,1)$ and the
 optical one $(1,0)$, so each branch is a single sublattice vibrating while the other stands
-still.
+still. This needs $m_1\neq m_2$. With equal masses the two zone-edge frequencies coincide, any
+combination of the two sublattice patterns is an equally valid mode, and the solver returns an
+arbitrary one; the interface detects that degeneracy and says so instead of presenting the drawn
+pattern as unique.
 
 \section{Conclusions}
 

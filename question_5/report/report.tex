@@ -26,7 +26,8 @@
     {ω}{{$\omega$}}1 {π}{{$\pi$}}1 {μ}{{$\mu$}}1 {η}{{$\eta$}}1
     {→}{{$\rightarrow$}}1 {≤}{{$\le$}}1 {≥}{{$\ge$}}1
     {—}{{---}}1 {–}{{--}}1 {×}{{$\times$}}1 {⁻}{{$^-$}}1 {¹}{{$^1$}}1
-    {⁵}{{$^5$}}1 {−}{{$-$}}1
+    {⁵}{{$^5$}}1 {−}{{$-$}}1 {³}{{$^3$}}1 {⁹}{{$^9$}}1 {ħ}{{$\hbar$}}1
+    {Γ}{{$\Gamma$}}1
 }
 
 \usepackage{hyperref}
@@ -59,11 +60,14 @@ We compute the electronic occupation statistics of a parabolic-band semiconducto
 carrier-density integral $n=\int D(E)f(E)\,dE$ numerically for the chemical potential. Writing
 the integral in terms of the dimensionless Fermi--Dirac integral $F_{1/2}$ keeps the units in one
 place and makes the integration cutoff a multiple of $k_BT$. The implementation is validated
-against both analytic limits: it reproduces the non-degenerate Boltzmann result to
-$1.3\times10^{-4}$ and the degenerate $T\to0$ Fermi energy to $10^{-7}$, and its temperature
-dependence follows the Sommerfeld expansion to $4\times10^{-9}$. An interactive Streamlit
-interface exposes temperature, carrier concentration, effective mass and band gap, and reports
-$E_F$, $k_F$, $v_F$ and $T_F$ alongside a degeneracy flag. We stress a distinction the usual
+against both analytic limits: in the non-degenerate regime it reproduces not only the
+Boltzmann result but the leading Fermi--Dirac correction to it, to $3\times10^{-5}$; it reaches
+the degenerate $T\to0$ Fermi energy to $10^{-7}$; its temperature dependence follows the
+Sommerfeld expansion to $4\times10^{-9}$; and $F_{1/2}$ itself matches independent series to
+round-off over $-40\le\eta\le10^{7}$. An interactive Streamlit
+interface exposes temperature, carrier concentration, effective mass and band gap, reports
+$E_F$, $k_F$, $v_F$ and $T_F$ alongside a degeneracy flag, and warns whenever the inputs leave
+the range in which the single-band model is valid. We stress a distinction the usual
 phrasing obscures: the quantity that varies with temperature is the chemical potential
 $\mu(T)$, not the Fermi energy $E_F=\mu(0)$, and $k_F$, $v_F$ and $T_F$ are meaningful only
 when the carrier gas is degenerate --- which at room temperature requires
@@ -194,14 +198,34 @@ temperature, which is precisely the statement that the gas is \emph{not} degener
 and that these quantities are formal numbers rather than physical ones. The interface therefore
 reports them as asked and displays $\eta$ beside them so the regime is never in doubt.
 
+\paragraph{Multi-valley materials.} For Si and Ge the electrons are shared between $M_c$
+equivalent ellipsoidal valleys ($M_c=6$ and $4$) with longitudinal and transverse masses
+$m_l,m_t$. Using the density-of-states mass $m_{de}=M_c^{2/3}(m_lm_t^2)^{1/3}$ in
+Eq.~\eqref{eq:EF} gives the correct $E_F$, but Eq.~\eqref{eq:kf} would put all $n$ electrons in
+one sphere. Each valley actually holds $n/M_c$, so its mean Fermi radius is
+$(3\pi^2n/M_c)^{1/3}$, smaller by $M_c^{1/3}$ ($1.82$ for Si), and the Fermi velocity is
+anisotropic, $v_i=\hbar k_i/m_i$ along each principal axis with $\hbar^2k_i^2/2m_i=E_F$. For Si at
+$10^{20}\,$cm$^{-3}$ this gives $k_F=0.79$ rather than $1.44$ nm$^{-1}$, and
+$v_F=1.6$ and $3.7\times10^5$ m/s along the long and short axes. The interface reports these
+per-valley values for the Si and Ge presets ($m_l,m_t=0.98,0.19$ and $1.64,0.082$).
+
 \section{Numerical method}
 
 \begin{enumerate}
-  \item Evaluate $F_{1/2}(\eta)$ by quadrature, with the upper limit at $\max(\eta,0)+60$;
-        the integrand falls off as $e^{-(x-\eta)}$, so this is far past negligible.
+  \item Evaluate $F_{1/2}(\eta)$ by adaptive quadrature with a purely relative tolerance of
+        $10^{-12}$, failing loudly if it is not met. The upper limit is $\max(\eta,0)+60$; the
+        integrand falls off as $e^{-(x-\eta)}$, so this is far past negligible. Two details
+        matter at the extremes. For $\eta<0$ the factor $e^\eta$ is taken outside the integral,
+        so the quadrature works on an integrand of order one however small $F_{1/2}$ is; with
+        an absolute tolerance instead, the error would rise to $10^{-3}$ for $\eta\lesssim-20$.
+        For $\eta>0$ the range is split at $x=\eta$, where the occupation steps from 1 to 0,
+        and the part more than $60$ below the step is integrated exactly, so the step is
+        resolved even at $\eta\sim10^{5}$.
   \item Solve $n(\eta)=n_{\text{target}}$ for $\eta$ with Brent's method.
-  \item Bracket by widening geometrically until the residual changes sign. A fixed bracket
-        fails at low temperature, where $n(\eta)$ is nearly a step.
+  \item Bracket the root using the two closed forms, which bound it: the Boltzmann form
+        overestimates $n$ at a given $\eta$, so the root lies above $\ln(n/N_c)$, and the
+        $T=0$ sphere underestimates it, so the root lies below $E_F/k_BT$. A fixed bracket
+        fails at low temperature, where $\eta$ can reach $10^{4}$ or more.
   \item Return $\mu = E_c + \eta k_BT$.
 \end{enumerate}
 Evaluating $f(E)$ through the logistic function \texttt{expit} avoids overflow when
@@ -209,7 +233,7 @@ $|E-\mu|\gg k_BT$, which otherwise produces \texttt{inf} and a silent \texttt{na
 
 \subsection{Validation}
 
-Six checks run in \texttt{test\_fermi.py}; all pass.
+Nine checks run in \texttt{test\_fermi.py}; all pass.
 
 \begin{table}[h]
 \centering
@@ -218,17 +242,30 @@ Six checks run in \texttt{test\_fermi.py}; all pass.
 \toprule
 \textbf{Check} & \textbf{Result} \\
 \midrule
-Non-degenerate limit vs Eq.~\eqref{eq:boltz}      & $1.3\times10^{-4}$ \\
+Non-degenerate: $\eta-\eta_{\text{Boltz}}$ vs $e^{\eta}/2^{3/2}$ & $3.2\times10^{-5}$ \\
 Degenerate $T\to0$ limit vs Eq.~\eqref{eq:EF}     & $9.6\times10^{-8}$ \\
-Carrier-density round trip                        & $4.9\times10^{-14}$ \\
+Carrier-density round trip                        & $6.9\times10^{-15}$ \\
 $f(\mu)=\tfrac12$                                 & exact \\
 Sommerfeld expansion for $\mu(T)$                 & $3.6\times10^{-9}$ \\
 $D(E)$ zero in the gap, analytic above $E_c$      & exact \\
+$F_{1/2}$ vs series, $-40\le\eta\le-0.5$          & $1.1\times10^{-15}$ \\
+$F_{1/2}$ vs asymptotic series, $10^3\le\eta\le10^7$ & $2.2\times10^{-16}$ \\
+Multi-valley $E_F$, $k_F$, valley volume          & exact \\
 \bottomrule
 \end{tabular}
-\caption{Validation results, as maximum relative errors.}
+\caption{Validation results, as maximum relative errors. The remaining check, not listed,
+confirms that $T=0$ and $n=0$ are rejected with an error rather than returning \texttt{nan}.}
 \label{tab:valid}
 \end{table}
+
+The first two rows deserve a comment, because their residuals are physics, not numerical error.
+Fermi--Dirac and Boltzmann statistics are not meant to agree exactly:
+$n=N_c\,(e^\eta-e^{2\eta}/2^{3/2}+\dots)$, so the solved $\eta$ must exceed the Boltzmann value
+$\ln(n/N_c)$ by $e^\eta/2^{3/2}$ to leading order. The check is that it does, and the
+$3\times10^{-5}$ is the size of the next-order term. Comparing $\eta$ rather than $\mu$ also
+matters: a relative error in $\mu$ depends on where the zero of energy is placed. Likewise, at
+$1$ K the Sommerfeld correction $(\pi^2/12)(k_BT/E_F)^2$ is itself $9.6\times10^{-8}$, so the
+second row is the physical offset of $\mu(1\,\mathrm{K})$ from $E_F$.
 
 The fifth is the strongest: in the degenerate regime the Sommerfeld expansion predicts
 \begin{equation}
@@ -246,7 +283,27 @@ sidebar takes the band gap, effective mass, temperature, carrier concentration a
 with presets for GaAs, Si and Ge. The main panel reports $\mu-E_c$, $E_F$, $k_F$, $v_F$ and
 $T_F$, states which regime the parameters fall in, and plots the band edges with $f(E)$ on a
 shared energy axis, $D(E)$ with its occupied part, and both sweeps. Every change recomputes the
-full integral; nothing is approximated for speed.
+full integral; nothing is approximated for speed, though repeated inputs are cached. The energy
+grids carry a dense patch of points within $12\,k_BT$ of $\mu$, so the Fermi step is resolved
+even at $1$ K, where $k_BT=86\,\mu$eV is far below the uniform grid spacing.
+
+The regime banner calls the gas degenerate for $\eta>2$ and non-degenerate for $\eta<-3$, where
+the Boltzmann approximation is within $2\%$ (at $\eta=-2$ it is still $4.7\%$ off). Because $n$
+is an input and the model has neither holes nor donor levels, some inputs describe states no real
+crystal can be in, and the interface says so instead of plotting them silently:
+\begin{itemize}
+  \item \emph{Valence band.} If $\mu$ falls within $3k_BT$ of $E_v$ or below it, which happens
+        for Si at $1000$ K and $10^{12}\,$cm$^{-3}$, where $\mu$ is $0.51$ eV below $E_v$, the
+        chosen $n$ is below the intrinsic density and an error is shown; below mid-gap a
+        milder warning is shown.
+  \item \emph{Freeze-out.} For the presets, if the donor fraction that would be ionised,
+        $1/[1+2(n/N_c)e^{E_d/k_BT}]$, drops below $90\%$, a warning notes that a real crystal
+        with fixed doping would lose free carriers, with $\mu$ settling between $E_d$ and $E_c$.
+        For Si at $10^{16}\,$cm$^{-3}$ this triggers below $135$ K.
+  \item \emph{Heavy doping.} The carrier-concentration slider stops at $10^{20}\,$cm$^{-3}$ and
+        anything above $10^{19}\,$cm$^{-3}$ is flagged as outside the model. For GaAs a warning
+        also appears once $\mu$ comes within $3k_BT$ of the $L$ valley.
+\end{itemize}
 
 \begin{figure*}[t]
 \centering
@@ -315,7 +372,10 @@ Those valleys would hold most of the carriers, so a single parabolic $\Gamma$ va
 longer the band structure and the computed $E_F$, while arithmetically correct, would be
 physically meaningless. Doping that heavy is also beyond what $n$-type GaAs achieves in
 practice, since Si dopants become amphoteric above roughly $10^{19}\,$cm$^{-3}$. We therefore
-keep every reported case within the range where the stated model holds.
+keep every reported case, and the range of Fig.~\ref{fig:mun}, within $10^{19}\,$cm$^{-3}$.
+Even that is the edge rather than the interior of the valid range: at $10^{19}\,$cm$^{-3}$ and
+$300$ K, $\mu$ is already within $40$ meV of the $L$ valley, so a small fraction of carriers
+would begin to spill into it.
 
 \begin{figure*}[t]
 \centering
@@ -367,8 +427,9 @@ more informative than a case chosen to hide it.
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{mu_vs_n.png}
-\caption{$\mu-E_c$ against carrier concentration at three temperatures. The curve crosses into
-the band near $n \sim N_c$, which is $4.35\times10^{17}\,$cm$^{-3}$ for GaAs at $300$ K.}
+\caption{$\mu-E_c$ against carrier concentration at three temperatures, up to the model's limit
+of $10^{19}\,$cm$^{-3}$. The curve crosses into the band near $n \sim N_c$, which is
+$4.35\times10^{17}\,$cm$^{-3}$ for GaAs at $300$ K.}
 \label{fig:mun}
 \end{figure}
 
@@ -416,8 +477,9 @@ doping.
 
 Solving the carrier-density integral directly, rather than assuming either limit, gives a method
 that spans the classical and degenerate regimes with one code path and reproduces both closed
-forms where they apply --- to $1.3\times10^{-4}$ for the Boltzmann limit and $10^{-7}$ for the
-degenerate limit. Applying it:
+forms where they apply: in the Boltzmann limit it recovers the leading Fermi--Dirac correction
+to $3\times10^{-5}$, and in the degenerate limit it reaches $E_F$ to $10^{-7}$, the size of the
+physical Sommerfeld offset at $1$ K. Applying it:
 
 \begin{itemize}
   \item The classical--degenerate boundary sits near $n \sim N_c$, which for GaAs at $300$ K is
@@ -432,14 +494,24 @@ degenerate limit. Applying it:
 \end{itemize}
 
 The model's limitations bound where it may be used. The band is a single isotropic parabolic
-valley. Using density-of-states masses makes $N_c$ correct for the multi-valley materials, but
-$k_F$ and $v_F$ computed from them describe one equivalent sphere rather than the real set of
-anisotropic valleys. GaAs has $L$ and $X$ valleys only $0.29$ and $0.48$ eV above $\Gamma$, and
+valley. Using density-of-states masses makes $N_c$ and $E_F$ correct for the multi-valley
+materials; $k_F$ and $v_F$ are then computed per valley from the anisotropic masses, as
+described in Sec.~\ref{sec:theory}, but the carrier statistics still treat each valley as
+parabolic. GaAs has $L$ and $X$ valleys only $0.29$ and $0.48$ eV above $\Gamma$, and
 once $E_F$ approaches them those valleys hold carriers the model never counts --- the reason the
 doping range above stops at $10^{19}\,$cm$^{-3}$. Band non-parabolicity
 would reduce $E_F$ further at high doping. We also neglect the valence band and dopant
 ionisation statistics, and treat $n$ as an input rather than solving for it self-consistently
-from the dopant levels.
+from the dopant levels. Two consequences follow, and the interface flags both rather than hiding
+them. At low $n$ and high $T$ the fixed-$n$ solution can place $\mu$ below $E_v$, a state that
+contradicts the model's own full valence band; with holes included, charge neutrality would pin
+$\mu$ near mid-gap instead. And as $T\to0$ the solution sends $\mu$ to $E_c+E_F$ for any $n$,
+whereas a non-degenerately doped crystal freezes out: for Si at $10^{16}\,$cm$^{-3}$ and $5$ K
+the model puts $\mu$ $0.75$ meV below $E_c$, while freeze-out would hold it roughly $20$ meV
+below. Solving $n-p=N_D^+$ with a valence band and a donor level would remove both
+limitations, and is the natural extension. The band gap is also held at its $300$ K value;
+Varshni narrowing, about $0.24$ eV for Si between $300$ and $1000$ K, would move $E_v$ closer to $\mu$ in the
+first case.
 
 \section*{Reproducing this work}
 

@@ -14,14 +14,26 @@ def check(name, ok, detail=""):
 
 # ---- 1. non-degenerate limit matches the Boltzmann closed form ----
 
+# Compared in eta = (mu - Ec)/kT, which does not depend on where the energy
+# zero sits (a relative error in mu would). Fermi-Dirac and Boltzmann are not
+# meant to agree exactly: n = N_c (e^eta - e^{2 eta}/2^{3/2} + ...), so the
+# solved eta must exceed ln(n/N_c) by e^eta/(2 sqrt 2) to leading order. The
+# check is that the numerics reproduce that correction, not just a small gap.
+
 def test_boltzmann():
-    worst = 0.0
+    worst_gap = worst_corr = 0.0
+    T = 300.0
     for n_cm3 in (1e12, 1e14, 1e15):
         n = n_cm3 * CM3
-        num = f.solve_mu(n, 300.0, M)
-        ana = f.boltzmann_mu(n, 300.0, M)
-        worst = max(worst, abs(num - ana) / abs(ana))
-    return check("non-degenerate vs Boltzmann", worst < 2e-3, f"max rel err {worst:.2e}")
+        eta = f.degeneracy(f.solve_mu(n, T, M), T)
+        eta_b = f.degeneracy(f.boltzmann_mu(n, T, M), T)
+        corr = np.exp(eta_b) / (2 * np.sqrt(2))
+        worst_gap = max(worst_gap, abs(eta - eta_b))
+        worst_corr = max(worst_corr, abs((eta - eta_b) / corr - 1))
+    return check("non-degenerate vs Boltzmann, in eta", worst_gap < 1e-3,
+                 f"max |d eta| {worst_gap:.2e}") and \
+        check("eta - eta_Boltzmann equals the leading FD correction e^eta/2^1.5",
+              worst_corr < 1e-4, f"max rel dev {worst_corr:.2e}")
 
 
 # ---- 2. degenerate limit: mu -> E_F as T -> 0 ----
@@ -79,8 +91,61 @@ def test_dos():
               np.allclose(f.dos(E, M, Ec), ana, rtol=1e-12))
 
 
+# ---- 7. F_{1/2} itself, against independent closed forms at both extremes ----
+
+def test_fermi_integral():
+    # eta < 0: convergent series (sqrt(pi)/2) sum (-1)^{k+1} e^{k eta} / k^{3/2}
+    k = np.arange(1, 400)
+    worst_neg = max(abs(f.fermi_integral_half(eta) /
+                        (np.sqrt(np.pi) / 2 * np.sum((-1) ** (k + 1) * np.exp(k * eta) / k**1.5))
+                        - 1) for eta in (-40.0, -20.0, -15.0, -5.0, -0.5))
+    # eta >> 1: Sommerfeld asymptotic series, truncation ~ eta^-6
+    asym = lambda e: 2 / 3 * e**1.5 * (1 + np.pi**2 / (8 * e**2) + 7 * np.pi**4 / (640 * e**4))
+    worst_pos = max(abs(f.fermi_integral_half(eta) / asym(eta) - 1)
+                    for eta in (1e3, 1e5, 1e7))
+    return check("F_1/2 vs series, eta in [-40, -0.5]", worst_neg < 1e-12,
+                 f"max rel err {worst_neg:.2e}") and \
+        check("F_1/2 vs asymptotic series, eta in [1e3, 1e7]", worst_pos < 1e-12,
+              f"max rel err {worst_pos:.2e}")
+
+
+# ---- 8. multi-valley Fermi quantities ----
+
+def test_multivalley():
+    # Si: 6 X valleys, m_l = 0.98, m_t = 0.19 -> m_de = 6^{2/3}(m_l m_t^2)^{1/3}
+    Mc, ml, mt = 6, 0.98 * f.M_E, 0.19 * f.M_E
+    m_de = Mc ** (2 / 3) * (ml * mt**2) ** (1 / 3)
+    n = 1e20 * CM3
+    one = f.fermi_quantities(n, m_de)
+    many = f.fermi_quantities(n, m_de, valleys=(Mc, ml, mt))
+    # E_F must agree with the equivalent sphere; k_F must not, by Mc^{1/3}
+    ok_E = abs(many["E_F"] / one["E_F"] - 1) < 1e-12
+    ok_k = abs(one["k_F"] / many["k_F"] - Mc ** (1 / 3)) < 1e-12
+    # the ellipsoid's volume must hold n/Mc electrons: k_l k_t^2 = 3 pi^2 n/Mc
+    ok_v = abs(many["k_F_l"] * many["k_F_t"] ** 2 / (3 * np.pi**2 * n / Mc) - 1) < 1e-12
+    return check("multi-valley: E_F as one sphere, k_F smaller by M_c^1/3, "
+                 "ellipsoid holds n/M_c", ok_E and ok_k and ok_v)
+
+
+# ---- 9. unphysical input is rejected, not turned into nan / inf ----
+
+def test_guards():
+    bad = [lambda: f.fermi_dirac(0.0, 0.0, 0.0), lambda: f.solve_mu(1e20, 0.0, M),
+           lambda: f.solve_mu(0.0, 300.0, M), lambda: f.boltzmann_mu(0.0, 300.0, M),
+           lambda: f.sommerfeld_mu(0.0, 300.0, M)]
+    raised = 0
+    for call in bad:
+        try:
+            call()
+        except ValueError:
+            raised += 1
+    return check("T = 0 and n = 0 raise ValueError", raised == len(bad),
+                 f"{raised}/{len(bad)}")
+
+
 if __name__ == "__main__":
     results = [test_boltzmann(), test_degenerate(), test_round_trip(),
-               test_half_occupancy(), test_sommerfeld(), test_dos()]
+               test_half_occupancy(), test_sommerfeld(), test_dos(),
+               test_fermi_integral(), test_multivalley(), test_guards()]
     print(f"\n{sum(results)}/{len(results)} checks passed")
     raise SystemExit(0 if all(results) else 1)

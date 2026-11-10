@@ -3,56 +3,109 @@
 Convention: `a` is the FULL unit-cell length, so the Brillouin zone is
 q in [-pi/a, pi/a] and the diatomic case has cos(q*a/2) where texts that
 set `a` to the nearest-neighbour spacing write cos(q*a).
+
+Spring constants: K is either one number (every bond equal) or a list of p
+per-bond values, K[j] joining atom j to atom j+1 and K[p-1] joining the last
+atom of a cell to the first atom of the next one.
 """
 
 import numpy as np
+
+EPS = np.finfo(float).eps
+
+
+# ---- input handling ----
+
+def _masses(m):
+    m = np.atleast_1d(np.asarray(m, dtype=float))
+    if m.ndim != 1 or m.size == 0:
+        raise ValueError("masses must be a non-empty 1D list")
+    if not np.all(np.isfinite(m)) or np.any(m <= 0):
+        raise ValueError("masses must be finite and positive")
+    return m
+
+
+def _springs(K, p):
+    """Per-bond spring constants as an array of length p."""
+    K = np.atleast_1d(np.asarray(K, dtype=float))
+    if K.size == 1:
+        K = np.full(p, K[0])
+    if K.size != p:
+        raise ValueError(f"K must be a scalar or have one entry per bond ({p})")
+    if not np.all(np.isfinite(K)) or np.any(K <= 0):
+        # K <= 0 is not a lattice: the 'frequencies' would be imaginary
+        raise ValueError("spring constants must be finite and positive")
+    return K
 
 
 # ---- dynamical matrix ----
 
 def dynamical_matrix(q, m, K, a):
-    """Mass-weighted dynamical matrix D(q) for masses m, spring constant K.
+    """Mass-weighted dynamical matrix D(q) for masses m and springs K.
 
     Atom j couples to j+1 inside the cell; atom p couples back to atom 1 of
     the next cell, which is the only q-dependent term.
     """
-    m = np.atleast_1d(np.asarray(m, dtype=float))
+    m = _masses(m)
     p = m.size
+    K = _springs(K, p)
+    sm = np.sqrt(m)            # sqrt(m_j)*sqrt(m_k), not sqrt(m_j*m_k): no overflow
     D = np.zeros((p, p), dtype=complex)
 
-    np.fill_diagonal(D, 2.0 * K / m)
+    if p == 1:
+        # the single atom bonds to both neighbouring cells: 2K/m - 2K/m*cos(qa)
+        D[0, 0] = 2.0 * K[0] / m[0] * (1.0 - np.cos(q * a))
+        return D
+
+    # each atom sits between the bond on its left and the one on its right
+    np.fill_diagonal(D, (np.roll(K, 1) + K) / m)
 
     # intra-cell bonds
     for j in range(p - 1):
-        c = -K / np.sqrt(m[j] * m[j + 1])
+        c = -K[j] / (sm[j] * sm[j + 1])
         D[j, j + 1] = c
         D[j + 1, j] = c
 
     # inter-cell bond, carries all the q-dependence
-    if p == 1:
-        # the single atom bonds to both neighbouring cells: 2K/m - 2K/m*cos(qa)
-        D[0, 0] = 2.0 * K / m[0] * (1.0 - np.cos(q * a))
-    else:
-        # += not =: at p=2 this bond shares the slot with the intra-cell one
-        c = -K * np.exp(-1j * q * a) / np.sqrt(m[0] * m[-1])
-        D[0, -1] += c
-        D[-1, 0] += np.conj(c)
-
+    # += not =: at p=2 this bond shares the slot with the intra-cell one
+    c = -K[-1] * np.exp(-1j * q * a) / (sm[0] * sm[-1])
+    D[0, -1] += c
+    D[-1, 0] += np.conj(c)
     return D
+
+
+def _frequencies(w2, D):
+    """sqrt of eigenvalues, clipping only round-off-sized negatives."""
+    floor = -100.0 * EPS * max(np.abs(D).max(), 1e-300)
+    if np.any(w2 < floor):
+        raise ValueError("negative omega^2: the lattice is mechanically unstable")
+    return np.sqrt(np.clip(w2, 0.0, None))
+
+
+def frequencies_at(q, m, K=1.0, a=1.0):
+    """Branch frequencies at a single wavevector, ascending."""
+    D = dynamical_matrix(q, m, K, a)
+    if not np.all(np.isfinite(D)):
+        raise ValueError("dynamical matrix is not finite; inputs out of range")
+    return _frequencies(np.linalg.eigvalsh(D), D)
 
 
 def dispersion(m, K=1.0, a=1.0, nq=401, full_zone=True):
     """Frequencies omega(q) on a q grid. Returns (q, omega) with omega shape (nq, p).
 
     D(q) is Hermitian, so eigvalsh gives real, ascending eigenvalues: branch 0
-    is acoustic, branches 1.. are optical.
+    is acoustic, branches 1.. are optical. In a nearest-neighbour chain the
+    branch extrema sit at q = 0 and q = pi/a, so the full-zone grid is forced
+    to contain q = 0 (nq rounded up to odd); otherwise branch limits and gap
+    edges would be read off points that miss the extrema.
     """
-    m = np.atleast_1d(np.asarray(m, dtype=float))
+    m = _masses(m)
     qmax = np.pi / a
+    if full_zone and nq % 2 == 0:
+        nq += 1
     q = np.linspace(-qmax if full_zone else 0.0, qmax, nq)
-
-    w2 = np.array([np.linalg.eigvalsh(dynamical_matrix(qi, m, K, a)) for qi in q])
-    return q, np.sqrt(np.clip(w2, 0.0, None))  # clip: tiny negatives at q=0 are roundoff
+    w = np.array([frequencies_at(qi, m, K, a) for qi in q])
+    return q, w
 
 
 # ---- derived quantities ----
@@ -66,31 +119,58 @@ def band_gaps(w, tol=1e-9):
     """Gaps between consecutive branches as (index, bottom, top, width).
 
     Branch i and i+1 are separated only if the whole of i lies below the whole
-    of i+1 over the zone.
+    of i+1 over the zone. `tol` is relative to the highest frequency, so the
+    answer does not depend on the units of K and m.
     """
+    thresh = tol * max(w.max(), 1e-300)
     gaps = []
     for i in range(w.shape[1] - 1):
         bottom, top = w[:, i].max(), w[:, i + 1].min()
-        if top - bottom > tol:
+        if top - bottom > thresh:
             gaps.append((i, bottom, top, top - bottom))
     return gaps
 
 
 def sound_velocity(m, K=1.0, a=1.0):
-    """Analytic acoustic slope at q->0: v = a*sqrt(K/(p*sum(m)))."""
-    m = np.atleast_1d(np.asarray(m, dtype=float))
-    return a * np.sqrt(K / (m.size * m.sum()))
+    """Analytic acoustic slope at q->0.
+
+    The p springs of a cell act in series, K_eff = 1/sum(1/K_j), and the whole
+    cell mass moves: v = a*sqrt(K_eff/sum(m)). With equal springs this is
+    a*sqrt(K/(p*sum(m))).
+    """
+    m = _masses(m)
+    K = _springs(K, m.size)
+    return a * np.sqrt(1.0 / np.sum(1.0 / K) / m.sum())
 
 
-def dos(m, K=1.0, a=1.0, nq=4001, nbins=200):
+def is_folded(m, K=1.0, rtol=1e-9):
+    """True if every mass and every spring in the cell is equal (p > 1).
+
+    The true period is then a/p and the 'optical' branches are the acoustic
+    branch folded back into the smaller zone, not genuine optical modes.
+    """
+    m = _masses(m)
+    K = _springs(K, m.size)
+    return m.size > 1 and np.ptp(m) <= rtol * m.max() and np.ptp(K) <= rtol * K.max()
+
+
+def dos(m, K=1.0, a=1.0, nq=4001, nbins=200, bins=None):
     """Phonon DOS per unit cell by histogramming omega over a dense q mesh.
 
     Normalised so that the integral of g over all frequencies equals p, the
-    number of branches: density=True gives unit area, so scale by p.
+    number of branches: density=True gives unit area, so scale by p. The
+    q = +pi/a endpoint is dropped because it is the same state as -pi/a.
+    Pass explicit bin edges via `bins` to compare several lattices at one bin
+    width; peak heights at a van Hove singularity depend on the bin width.
     """
     _, w = dispersion(m, K, a, nq=nq)
-    counts, edges = np.histogram(w.ravel(), bins=nbins, density=True)
-    return 0.5 * (edges[:-1] + edges[1:]), w.shape[1] * counts
+    w = w[:-1]
+    counts, edges = np.histogram(w.ravel(), bins=nbins if bins is None else bins,
+                                 density=True)
+    # density=True normalises over the binned range; correct for any modes
+    # that fall outside explicit edges (none do when edges span the spectrum)
+    inside = np.mean((w.ravel() >= edges[0]) & (w.ravel() <= edges[-1]))
+    return 0.5 * (edges[:-1] + edges[1:]), w.shape[1] * inside * counts
 
 
 # ---- closed forms, for validation ----
@@ -101,22 +181,36 @@ def monatomic_exact(q, m=1.0, K=1.0, a=1.0):
 
 
 def diatomic_exact(q, m1, m2, K=1.0, a=1.0):
-    """Textbook two-branch solution. Returns (acoustic, optical)."""
+    """Textbook two-branch solution. Returns (acoustic, optical).
+
+    omega_-^2 is written as 4K sin^2/(m1 m2 (s + root)) rather than K(s - root),
+    which avoids cancellation when the two terms are nearly equal; the square
+    root argument is clipped because rounding can push it just below zero at
+    the zone edge for equal masses.
+    """
     s = 1.0 / m1 + 1.0 / m2
-    root = np.sqrt(s**2 - 4.0 * np.sin(q * a / 2.0) ** 2 / (m1 * m2))
-    return np.sqrt(K * (s - root)), np.sqrt(K * (s + root))
+    sin2 = np.sin(q * a / 2.0) ** 2
+    root = np.sqrt(np.clip(s**2 - 4.0 * sin2 / (m1 * m2), 0.0, None))
+    w_minus2 = 4.0 * K * sin2 / (m1 * m2 * (s + root))
+    return np.sqrt(w_minus2), np.sqrt(K * (s + root))
 
 
 # ---- eigenvectors ----
 
-def modes(q, m, K=1.0, a=1.0):
-    """Frequencies and real-space displacement patterns at one q.
+def modes(q, m, K=1.0, a=1.0, rtol=1e-6):
+    """Frequencies, real-space displacement patterns and degeneracy flags at one q.
 
     eigh returns the mass-weighted eigenvectors e; the physical displacement
     amplitude is u_j = e_j / sqrt(m_j), which is what gets drawn.
+
+    `degenerate[b]` is True when branch b shares its frequency with another
+    branch at this q. eigh then returns an arbitrary basis of the degenerate
+    subspace, so the drawn pattern for that branch is not unique.
     """
-    m = np.atleast_1d(np.asarray(m, dtype=float))
-    w2, e = np.linalg.eigh(dynamical_matrix(q, m, K, a))
+    m = _masses(m)
+    D = dynamical_matrix(q, m, K, a)
+    w2, e = np.linalg.eigh(D)
+    w = _frequencies(w2, D)
     u = e / np.sqrt(m)[:, None]
 
     # eigh fixes each column only up to a global phase, which at the zone edge
@@ -124,6 +218,11 @@ def modes(q, m, K=1.0, a=1.0):
     # component of each mode is real and positive.
     lead = np.argmax(np.abs(u), axis=0)
     u = u * np.exp(-1j * np.angle(u[lead, np.arange(u.shape[1])]))
-
     u = u / np.abs(u).max(axis=0)  # normalise each mode for plotting
-    return np.sqrt(np.clip(w2, 0.0, None)), u
+
+    tol = rtol * max(w2.max(), 1e-300)
+    if w2.size == 1:
+        return w, u, np.array([False])
+    sep = np.abs(w2[:, None] - w2[None, :])
+    np.fill_diagonal(sep, np.inf)          # a branch is not degenerate with itself
+    return w, u, sep.min(axis=1) < tol
