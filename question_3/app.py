@@ -9,13 +9,15 @@ import sys
 import numpy as np
 import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 # when run as a page of streamlit_app.py the entry script's directory is on
-# sys.path, not this one, so add both explicitly
-sys.path.insert(0, os.path.join(_HERE, "..", "common"))
-sys.path.insert(0, _HERE)
+# sys.path, not this one, so add both explicitly. Streamlit re-runs this script
+# on every widget change, so insert only once or the list grows without bound.
+for _p in (os.path.normpath(os.path.join(_HERE, "..", "common")), _HERE):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 import style
 import phonon as ph
 
@@ -51,12 +53,16 @@ with st.sidebar:
 
     # the key carries the preset: a keyed widget ignores `value` once it exists,
     # so without this, switching preset would leave the old masses in place
-    masses = [st.number_input(f"$m_{{{j+1}}}$", min_value=0.01, value=float(base[j]),
-                              step=0.1, key=f"m_{preset}_{j}") for j in range(p)]
+    # upper bounds keep D(q) far from floating-point overflow
+    masses = [st.number_input(f"$m_{{{j+1}}}$", min_value=0.01, max_value=1e4,
+                              value=float(base[j]), step=0.1, key=f"m_{preset}_{j}")
+              for j in range(p)]
 
     st.subheader("Interaction")
-    K = st.number_input("Spring constant $K$", min_value=0.01, value=1.0, step=0.1)
-    a = st.number_input("Lattice constant $a$ (full cell)", min_value=0.01, value=1.0, step=0.1)
+    K = st.number_input("Spring constant $K$", min_value=0.01, max_value=1e4, value=1.0,
+                        step=0.1)
+    a = st.number_input("Lattice constant $a$ (full cell)", min_value=0.01, max_value=1e3,
+                        value=1.0, step=0.1)
     nq = st.select_slider("q-points", [201, 401, 801, 1601], value=801)
     show_dos = st.checkbox("Show density of states", value=True)
     show_modes = st.checkbox("Show mode displacements", value=True)
@@ -65,10 +71,28 @@ with st.sidebar:
 
 # ---- solve ----
 
-q, w = ph.dispersion(masses, K, a, nq=nq)
+
+@st.cache_data(max_entries=64)
+def solve(masses, K, a, nq):
+    return ph.dispersion(list(masses), K, a, nq=nq)
+
+
+try:
+    q, w = solve(tuple(masses), K, a, nq)
+    if not np.all(np.isfinite(w)):
+        raise ValueError("non-finite frequencies")
+except ValueError as err:
+    st.error(f"These inputs do not give a stable, finite lattice ({err}).")
+    st.stop()
+
 gaps = ph.band_gaps(w)
 limits = ph.branch_limits(w)
 colors = style.branch_colors(p)
+# equal masses: the real period is a/p, so the upper branches are the acoustic
+# branch folded into the smaller zone, not optical modes
+folded = ph.is_folded(masses, K)
+names = ["Acoustic"] + [("Folded acoustic " if folded else "Optical ") + str(i)
+                        for i in range(1, p)]
 
 # ---- dispersion plot ----
 
@@ -76,7 +100,8 @@ left, right = st.columns([3, 2])
 
 with left:
     st.subheader("Dispersion relation")
-    fig, ax = plt.subplots(figsize=(7, 4.6))
+    fig = Figure(figsize=(7, 4.6))
+    ax = fig.subplots()
 
     for _, bottom, top, width in gaps:
         ax.axhspan(bottom, top, color=style.GAP_FILL, alpha=0.3, zorder=0)
@@ -85,8 +110,7 @@ with left:
                     bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="none", alpha=0.85))
 
     for i in range(p):
-        ax.plot(q / np.pi, w[:, i], color=colors[i],
-                label="Acoustic" if i == 0 else f"Optical {i}")
+        ax.plot(q / np.pi, w[:, i], color=colors[i], label=names[i])
 
     if show_exact and p <= 2:
         if p == 1:
@@ -101,12 +125,17 @@ with left:
         st.caption("No closed form for $p > 2$; the overlay is shown only for $p \\le 2$.")
 
     ax.set_xlabel(r"Wavevector $q$  ($\pi/a$)")
-    ax.set_ylabel(r"Frequency $\omega$  ($\sqrt{K/m_1}$)")
+    ax.set_ylabel(r"Frequency $\omega$  (input units)")
     ax.set_xlim(-1, 1)
     ax.set_ylim(0, w.max() * 1.3)
     ax.legend(loc="upper right")
     st.pyplot(fig)
-    plt.close(fig)
+    st.caption(r"Frequencies are in the units set by the inputs, $\omega\propto\sqrt{K/m}$; "
+               r"they are in units of $\sqrt{K/m_1}$ only when $K = m_1 = 1$.")
+    if folded:
+        st.info(f"{'Both' if p == 2 else f'All {p}'} masses are equal, so the true period is $a/{p}$ and the upper "
+                "branches are the acoustic branch folded back into this zone, not "
+                "optical modes.")
 
     csv = "q," + ",".join(["acoustic"] + [f"optical_{i}" for i in range(1, p)]) + "\n"
     csv += "\n".join(",".join(f"{v:.6g}" for v in row) for row in np.column_stack([q, w]))
@@ -115,10 +144,10 @@ with left:
 with right:
     st.subheader("Branch limits")
     st.dataframe(pd.DataFrame({
-        "Branch": ["Acoustic"] + [f"Optical {i}" for i in range(1, p)],
+        "Branch": names,
         "ω min": [f"{lo:.4f}" for lo, _ in limits],
         "ω max": [f"{hi:.4f}" for _, hi in limits],
-    }), hide_index=True, use_container_width=True)
+    }), hide_index=True, width="stretch")
 
     st.subheader("Bandgaps")
     if gaps:
@@ -127,7 +156,9 @@ with right:
             "From": [f"{b:.4f}" for _, b, _, _ in gaps],
             "To": [f"{t:.4f}" for _, _, t, _ in gaps],
             "Width": [f"{wd:.4f}" for _, _, _, wd in gaps],
-        }), hide_index=True, use_container_width=True)
+        }), hide_index=True, width="stretch")
+    elif p == 1:
+        st.info("One atom per cell gives a single branch, so there is no gap to open.")
     else:
         st.info("No gap: the branches touch. Equal masses leave the spectrum unsplit.")
 
@@ -140,29 +171,30 @@ st.subheader("Eigenfrequencies")
 st.caption("At $q=0$ the acoustic mode is a rigid translation of the whole cell "
            "($\\omega=0$); optical modes there are the atoms beating against each other.")
 
-w_centre = np.sqrt(np.clip(np.linalg.eigvalsh(ph.dynamical_matrix(0.0, masses, K, a)), 0, None))
-w_edge = np.sqrt(np.clip(np.linalg.eigvalsh(ph.dynamical_matrix(np.pi / a, masses, K, a)), 0, None))
+w_centre = ph.frequencies_at(0.0, masses, K, a)
+w_edge = ph.frequencies_at(np.pi / a, masses, K, a)
 st.dataframe(pd.DataFrame({
-    "Branch": ["Acoustic"] + [f"Optical {i}" for i in range(1, p)],
+    "Branch": names,
     "ω at q = 0": [f"{v:.4f}" for v in w_centre],
     "ω at q = π/a": [f"{v:.4f}" for v in w_edge],
-}), hide_index=True, use_container_width=True)
+}), hide_index=True, width="stretch")
 
 # ---- density of states ----
 
 if show_dos:
     st.subheader("Density of states")
     centres, g = ph.dos(masses, K, a, nbins=160)
-    fig, ax = plt.subplots(figsize=(7, 2.8))
+    fig = Figure(figsize=(7, 2.8))
+    ax = fig.subplots()
     ax.fill_between(centres, g, color=style.ACOUSTIC, alpha=0.35, lw=0)
     ax.plot(centres, g, color=style.ACOUSTIC, lw=1.2)
     ax.set_xlabel(r"Frequency $\omega$")
     ax.set_ylabel(r"$g(\omega)$")
     st.pyplot(fig)
-    plt.close(fig)
     st.caption("Normalised per unit cell, so the area under the curve is the number of "
                "branches p. Peaks are van Hove singularities, where a branch flattens "
-               "and many q-states share one frequency.")
+               "and many q-states share one frequency. Peak heights depend on the bin "
+               "width, so read peak positions, not heights.")
 
 # ---- mode displacements ----
 
@@ -173,13 +205,13 @@ if show_modes:
 
     c1, c2 = st.columns(2)
     with c1:
-        branch = st.selectbox("Branch", ["Acoustic"] + [f"Optical {i}" for i in range(1, p)])
+        branch = st.selectbox("Branch", names)
     with c2:
         q_frac = st.slider("q  (units of π/a)", 0.0, 1.0, 0.0, 0.05)
 
-    b = 0 if branch == "Acoustic" else int(branch.split()[-1])
+    b = names.index(branch)
     q_sel = q_frac * np.pi / a
-    w_sel, u_sel = ph.modes(q_sel, masses, K, a)
+    w_sel, u_sel, degen = ph.modes(q_sel, masses, K, a)
 
     ncells = 4
     y_atom, y_arrow = 0.0, 0.30 * a      # arrows sit on their own row above the chain
@@ -194,7 +226,8 @@ if show_modes:
     scale = 0.7 * (a / p) / dmax if dmax > 1e-9 else 0.0
     mmin = min(masses)
 
-    fig, ax = plt.subplots(figsize=(8, 2.6))
+    fig = Figure(figsize=(8, 2.6))
+    ax = fig.subplots()
     for n in range(ncells):
         for j in range(p):
             x = n * a + (j + 0.5) * a / p
@@ -225,11 +258,14 @@ if show_modes:
     ax.set_title(f"{branch} mode at $q = {q_frac:.2f}\\,\\pi/a$,  "
                  f"$\\omega = {w_sel[b]:.4f}$")
     st.pyplot(fig)
-    plt.close(fig)
 
-    if b == 0 and q_frac == 0.0:
+    if degen[b]:
+        st.warning("This branch is degenerate with another one at this $q$. Any mixture "
+                   "of the two is an equally valid mode, so the pattern drawn is one "
+                   "arbitrary choice, not a unique displacement.")
+    elif b == 0 and q_frac == 0.0:
         st.info("At $q=0$ the acoustic mode is a uniform translation — every atom moves "
                 "together, no spring stretches, so $\\omega = 0$.")
-    elif b > 0 and q_frac == 0.0:
+    elif b > 0 and q_frac == 0.0 and not folded:
         st.info("At $q=0$ an optical mode has the atoms inside each cell moving against "
                 "one another, with the cell's centre of mass at rest.")

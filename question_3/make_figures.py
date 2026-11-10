@@ -164,9 +164,12 @@ def fig_validation():
 
 def fig_dos():
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.2), sharey=True)
+    # one set of bin edges for all three cases, so every panel has the same bin
+    # width: a van Hove peak's height grows as the bin shrinks, so heights are
+    # only comparable across panels at a common width
+    edges = np.linspace(0.0, _common_ymax() * 1.0001, 241)
     for ax, (_, m, K, title) in zip(axes, CASES):
-        # shared y-axis: the report compares peak heights across the three cases
-        centres, g = ph.dos(m, K, nq=40001, nbins=200)
+        centres, g = ph.dos(m, K, nq=40001, bins=edges)
         ax.fill_between(centres, g, color=style.ACOUSTIC, alpha=0.35, lw=0)
         ax.plot(centres, g, color=style.ACOUSTIC, lw=1.2)
         ax.set_xlabel(r"Frequency $\omega$")
@@ -195,7 +198,7 @@ def fig_modes():
     fig, axes = plt.subplots(2, 2, figsize=(10, 4.2))
     for row, (q_frac, qlab) in enumerate([(0.0, r"$q=0$"), (1.0, r"$q=\pi/a$")]):
         q = q_frac * np.pi / a
-        w, u = ph.modes(q, m, K, a)
+        w, u, _ = ph.modes(q, m, K, a)
         for col, bname in enumerate(["Acoustic", "Optical"]):
             ax = axes[row, col]
             for n in range(ncell):

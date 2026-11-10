@@ -58,7 +58,7 @@ def test_sound_velocity():
 def test_acoustic_zero():
     worst = 0.0
     for m in ([1.0, 4.0], [1.0, 2.0, 3.0], [1.0, 1.0, 2.0, 5.0]):
-        w = np.sqrt(np.clip(np.linalg.eigvalsh(ph.dynamical_matrix(0.0, m, 1.0, 1.0)), 0, None))
+        w = ph.frequencies_at(0.0, m, 1.0, 1.0)
         worst = max(worst, w[0])
     return check("omega_acoustic(q=0) = 0", worst < 1e-8, f"max {worst:.2e}")
 
@@ -72,8 +72,71 @@ def test_gap_closure():
            check("unequal masses -> gap", len(ph.band_gaps(w_un)) == 1)
 
 
+# ---- 6. per-bond springs: invariance and series sound velocity ----
+
+def test_per_bond_springs():
+    m = [1.0, 2.0, 3.0]
+    _, w_scalar = ph.dispersion(m, 1.7, nq=201)
+    _, w_list = ph.dispersion(m, [1.7, 1.7, 1.7], nq=201)
+    ok = check("per-bond K list equal to scalar K", np.abs(w_scalar - w_list).max() < 1e-14)
+
+    # unequal bonds: omega_1(0) must still vanish and the slope must follow
+    # the series-spring formula K_eff = 1/sum(1/K_j)
+    K = [1.0, 3.0, 0.5]
+    # omega = sqrt(eigenvalue), so round-off of ~eps*|D| in the eigenvalue
+    # shows up as ~sqrt(eps*|D|) ~ 1e-8 in omega
+    w0 = ph.frequencies_at(0.0, m, K)[0]
+    q, w = ph.dispersion(m, K, nq=20001, full_zone=False)
+    v_num = np.polyfit(q[:5], w[:5, 0], 1)[0]
+    rel = abs(v_num - ph.sound_velocity(m, K)) / ph.sound_velocity(m, K)
+    return ok and check("unequal bonds: omega_1(0)=0 and series sound velocity",
+                        w0 < 1e-7 and rel < 1e-3, f"omega_1(0) {w0:.1e}, v rel err {rel:.1e}")
+
+
+# ---- 7. robustness: units, round-off and unphysical input ----
+
+def test_robustness():
+    # closed form stays finite for equal masses (rounding used to give NaN)
+    # and keeps full accuracy at extreme mass ratio (no cancellation)
+    q = np.linspace(-np.pi, np.pi, 2001)
+    ok = check("diatomic_exact finite for equal masses",
+               all(np.all(np.isfinite(ph.diatomic_exact(q, mm, mm)[0])) for mm in (0.09, 0.7, 1.0)))
+    qs = np.array([1e-4])
+    ac, _ = ph.diatomic_exact(qs, 1.0, 1e9)
+    w_ref = qs * ph.sound_velocity([1.0, 1e9])
+    ok &= check("diatomic_exact free of cancellation at mass ratio 1e9",
+                abs(ac[0] - w_ref[0]) / w_ref[0] < 1e-6)
+
+    # gap detection must not depend on the unit of K
+    _, w_big = ph.dispersion([1.0, 1.0, 1.0], 1e14, nq=301)
+    _, w_tiny = ph.dispersion([1.0, 4.0], 1e-20, nq=301)
+    ok &= check("gap detection independent of units",
+                len(ph.band_gaps(w_big)) == 0 and len(ph.band_gaps(w_tiny)) == 1)
+
+    # huge masses no longer overflow the coupling into zero
+    _, w_huge = ph.dispersion([1e160, 4e160], 1e160, nq=101)
+    _, w_unit = ph.dispersion([1.0, 4.0], 1.0, nq=101)
+    ok &= check("no overflow for masses ~1e160", np.allclose(w_huge, w_unit, rtol=1e-12))
+
+    # an even nq must still put a grid point at q = 0
+    _, w_even = ph.dispersion([1.0, 4.0], nq=400)
+    ok &= check("even nq still samples q = 0", w_even[:, 0].min() == 0.0)
+
+    # degenerate branches are flagged (their drawn pattern is an arbitrary mix)
+    ok &= check("degeneracy flagged: equal masses at q = pi/a, not unequal",
+                ph.modes(np.pi, [0.7, 0.7])[2].all() and not ph.modes(np.pi, [1.0, 4.0])[2].any())
+
+    try:
+        ph.dispersion([1.0, 4.0], -1.0)
+        raised = False
+    except ValueError:
+        raised = True
+    return ok and check("negative K rejected, not clipped to omega = 0", raised)
+
+
 if __name__ == "__main__":
     results = [test_diatomic(), test_monatomic(), test_sound_velocity(),
-               test_acoustic_zero(), test_gap_closure()]
+               test_acoustic_zero(), test_gap_closure(), test_per_bond_springs(),
+               test_robustness()]
     print(f"\n{sum(results)}/{len(results)} checks passed")
     raise SystemExit(0 if all(results) else 1)
