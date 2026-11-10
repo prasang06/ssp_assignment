@@ -66,6 +66,13 @@ is a multiple of k_BT.
 Degenerate-gas quantities (a filled Fermi sphere):
 `k_F = (3π²n)^{1/3}`, `v_F = ħk_F/m*`, `T_F = E_F/k_B`.
 
+**Multi-valley materials (Si, Ge).** The conduction band has `M_c` equivalent ellipsoidal valleys
+(6 in Si, 4 in Ge) with masses `m_l` (long axis) and `m_t` (short axes). The density-of-states
+mass `m_de = M_c^{2/3}(m_l m_t²)^{1/3}` gives the right `N_c` and `E_F`. But each valley holds
+only `n/M_c`, so its mean Fermi radius is `(3π²n/M_c)^{1/3}`, smaller by `M_c^{1/3}`, and the Fermi
+velocity depends on direction: `v_i = ħk_i/m_i` with `ħ²k_i²/2m_i = E_F`. Si at 1e20 cm⁻³:
+`k_F` 0.79 rather than 1.44 nm⁻¹; `v_F` 1.6 and 3.7 × 10⁵ m/s along the long and short axes.
+
 ## 6. The two "points of care": **say these in the viva**
 
 1. **`E_F` is not `μ(T)`.** They coincide only at T=0. `E_F` depends on `n` alone; what moves with
@@ -90,14 +97,19 @@ Degenerate-gas quantities (a filled Fermi sphere):
 - **Why is `f(μ)=1/2` always?** Plug E=μ: `1/(e⁰+1)`.
 - **Why does μ fall as T rises?** `D(E)` grows with E, so more states are above μ than below
   within the thermal window; carriers are promoted upward and μ must drop to keep n fixed.
-- **When is Boltzmann OK?** When `η ≪ −1`, i.e. `n ≪ N_c`.
+- **When is Boltzmann OK?** When `η ≪ −1`, i.e. `n ≪ N_c`. Quantitatively it is 1.7 % off at
+  η = −3 and 4.7 % at η = −2, which is why the app's "non-degenerate" banner starts at η < −3.
 - **What is `N_c`?** The effective number of states at the band edge available at temperature T.
 - **Why is the gas non-degenerate in a normal doped semiconductor?** `n` is far below `N_c` (≈1e16 vs
   4e17), so `E_F ≪ k_BT`.
 - **Why does doping stop at 1e19?** Beyond that, E_F reaches the L/X satellite valleys of GaAs
   (0.29 and 0.48 eV), so a single parabolic Γ valley is no longer the right model.
 - **Spin?** Counted as the factor 2 in the DOS.
-- **Valence band/holes?** Outside the model (n-type, conduction band only).
+- **Valence band/holes?** Outside the model (n-type, conduction band only). Two consequences
+  to know: at low n and high T the fixed-n solution can put μ *below* E_v (a contradiction;
+  really, holes take over and μ sits near mid-gap); and as T→0 there is no freeze-out (really,
+  donors recapture electrons and μ sits between E_d and E_c). The app warns in both cases. The
+  fix is to solve charge neutrality `n − p = N_D⁺` with a valence band and a donor level.
 
 ## 9. Check yourself
 

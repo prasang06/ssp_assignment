@@ -24,7 +24,7 @@ Reference material: GaAs-like (`E_g = 1.42 eV`, `m* = 0.067 mₑ`), reference `n
 | `fig_occupation` | `occupation.png` | `f(E)` smearing with T = 10, 100, 300, 600 K (μ held fixed) |
 | `fig_dos` | `dos_occupied.png` | `D(E)` and `D(E)f(E)`, three regimes, log y-axis |
 | `fig_mu_vs_T` | `mu_vs_T.png` | (a) μ(T) at three n; (b) degenerate case vs Sommerfeld |
-| `fig_mu_vs_n` | `mu_vs_n.png` | μ−E_c vs n at three temperatures |
+| `fig_mu_vs_n` | `mu_vs_n.png` | μ−E_c vs n at three temperatures, 1e13 to 1e19 (the model's limit) |
 
 ## 3. Results to know cold
 
@@ -80,7 +80,9 @@ degeneracy again.
 ### Why doping stops at 1e19
 
 At 1e20, E_F ≈ 1.17 eV above E_c, far above GaAs's L and X valleys (0.29 and 0.48 eV), so the
-single-parabolic-valley model no longer describes the band structure.
+single-parabolic-valley model no longer describes the band structure. The `mu_vs_n` figure
+therefore stops at 1e19 (it used to run to 1e21), and the app flags anything above 1e19. Even
+1e19 is the edge: μ is 250 meV above E_c there, within 40 meV of the L valley.
 
 ## 4. Likely questions
 
@@ -93,7 +95,13 @@ single-parabolic-valley model no longer describes the band structure.
 - **What is the clipping at 1e10 in the DOS plot?** A floor on the log axis for plotting only; the
   physics decays smoothly to zero.
 - **Why do Si and Ge look more classical than GaAs at the same n?** Larger m* → larger N_c.
-- **What happens to μ as T→0?** μ → E_F (degenerate), shown in the T-sweep tests.
+- **What happens to μ as T→0?** In the model, μ → E_c + E_F for any n (shown in the T-sweep
+  tests). In a real lightly doped crystal the donors recapture their electrons (freeze-out) and
+  μ stays between the donor level and E_c. The model holds n fixed, so it can't show that; the
+  app warns when it would matter.
+- **What happens at very low n and high T?** The fixed-n model can push μ below the valence band
+  (Si, 1000 K, 1e12: 0.51 eV below E_v). Physically the intrinsic density is then far above n
+  and holes take over; the model has no holes, so the app shows an error instead.
 - **What's the area under D·f?** The carrier density n.
 - **Which result would change for p-type?** Would need the valence-band DOS and hole density, which
   are outside this model.

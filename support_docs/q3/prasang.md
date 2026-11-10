@@ -18,13 +18,13 @@ Back to [README](../README.md) · other-question primer is there too.
 
 | Section | What it does |
 |---|---|
-| Sidebar | Preset (Custom / Case A / B / C), `p` slider (1–5, fixed by a preset), one mass field per atom, `K`, `a`, q-points, toggles for DOS, modes, analytic overlay |
-| Solve | `ph.dispersion` → `(q, w)`; `ph.band_gaps(w)`; `ph.branch_limits(w)` |
-| Dispersion plot | Gaps shaded with `axhspan` and labelled with width; acoustic vs optical in different colours; optional analytic overlay for p≤2; CSV download |
+| Sidebar | Preset (Custom / Case A / B / C), `p` slider (1–5, fixed by a preset), one mass field per atom, `K`, `a`, q-points, toggles for DOS, modes, analytic overlay. Masses and K are bounded (≤1e4), a ≤ 1e3 |
+| Solve | `ph.dispersion` → `(q, w)`, cached; bad input shows an error and stops instead of crashing; `ph.band_gaps(w)`; `ph.branch_limits(w)`; `ph.is_folded` |
+| Dispersion plot | Gaps shaded with `axhspan` and labelled with width; acoustic vs optical in different colours; optional analytic overlay for p≤2; CSV download. y-axis says "input units" (see §5) |
 | Tables | Branch limits, bandgaps, analytic sound velocity (`ph.sound_velocity`) |
-| Eigenfrequencies | Diagonalises `D` at q=0 and q=π/a directly |
-| DOS | `ph.dos`, histogram of ω over a dense q mesh |
-| Mode displacements | `ph.modes` gives eigenvectors; draws `Re[u_j e^{iqna}]` as arrows over 4 cells |
+| Eigenfrequencies | `ph.frequencies_at` at q=0 and q=π/a directly |
+| DOS | `ph.dos`, histogram of ω over a dense q mesh; caption says read peak positions, not heights |
+| Mode displacements | `ph.modes` gives eigenvectors; draws `Re[u_j e^{iqna}]` as arrows over 4 cells; warns if the branch is degenerate at that q |
 
 Design points to be able to explain:
 - **The key on the mass inputs includes the preset** (`key=f"m_{preset}_{j}"`). Streamlit widgets
@@ -33,6 +33,14 @@ Design points to be able to explain:
 - Every change recomputes everything: it's cheap (n_q diagonalisations of tiny matrices).
 - Arrows show **physical** displacements `u_j = e_j/√m_j`, not the mass-weighted `e_j`. That's
   why the light atom moves more in the optical mode.
+- **Equal masses → "Folded acoustic", not "Optical".** With all masses equal the real period is
+  a/p, so the upper branches are the acoustic branch folded back into the smaller zone. The app
+  labels them that way and explains why. With p=1 it says there's a single branch, so no gap.
+- **Degenerate modes.** Equal masses at q=π/a give two equal frequencies; any mix of the two
+  patterns is valid and the solver picks one arbitrarily. The app warns rather than presenting
+  the picture as unique.
+- Figures are `matplotlib.figure.Figure` objects (not pyplot), so a failed rerun can't leak
+  them, and `sys.path` is only extended once, not on every rerun.
 
 ## 3. Results you must know cold
 
@@ -62,7 +70,11 @@ K sets the *scale*.
 
 **DOS:** `g(ω)` counts modes per unit frequency, normalised so ∫g dω = p. It is zero in gaps. Peaks
 (van Hove singularities) occur where a branch has zero slope (q=0, q=π/a, flat branches).
-Histogram peak heights depend on bin width, so the height isn't a physical number.
+Histogram peak heights depend on bin width, so the height isn't a physical number. The report
+figure uses **one common bin width** (8.1e-3) for all three panels, so heights can at least be
+compared across cases. The bin-independent statement: Case C's top branch spans only
+1.5602–1.6180 (width 0.058), about 3× narrower than the next-narrowest branch (Case A optical,
+0.167), so its states pile up into the tallest peak.
 
 ## 4. Figures (know what each shows)
 
@@ -73,16 +85,20 @@ Histogram peak heights depend on bin width, so the height isn't a physical numbe
 *Left: Case A at four K. Right: divided by √K, all collapse.*
 
 ![dos](../../question_3/figures/dos.png)
-*DOS per case; empty regions are the gaps.*
+*DOS per case, common bins; empty regions are the gaps.*
 
 ![modes](../../question_3/figures/modes.png)
 *Mode patterns for m=(1,4). At q=0 the acoustic mode is a uniform translation; the optical mode
-has atoms moving against each other. At q=π/a the eigenvectors are exactly (0,1) and (1,0).*
+has atoms moving against each other. At q=π/a the eigenvectors are exactly (0,1) and (1,0);
+that needs m₁ ≠ m₂. With equal masses the two zone-edge frequencies coincide and the pattern is
+not unique.*
 
 ![gap vs ratio](../../question_3/figures/gap_vs_ratio.png)
 *Gap grows monotonically from 0 at m₂=m₁.*
 
 ![UI case A](../../question_3/figures/ui_case_a_top.png)
+*Taken before the review fixes: the live app's y-axis now reads "input units". Numbers are the
+same.*
 
 ## 5. Likely questions
 
@@ -95,6 +111,9 @@ has atoms moving against each other. At q=π/a the eigenvectors are exactly (0,1
   back.
 - **Why does the light atom swing four times further in the optical mode at q=0?** The
   centre of mass must stay at rest: m₁u₁ + m₂u₂ = 0, so u₁/u₂ = m₂/m₁ = 4.
+- **Why is the optical frequency at q=0 √(2K/μ), and not √(K/μ) like two masses on one spring?**
+  Each atom sits between *two* springs, and in this mode both stretch by the same amount, so the
+  restoring force doubles. (μ is the reduced mass; Case A: √(2·1/0.8) = 1.5811.)
 - **What does the DOS tell you that the dispersion doesn't?** How many modes sit at each
   frequency. Flat branches pile up many modes at one frequency.
 - **How do you know the app is right?** The same `phonon.py` is checked against the monatomic
@@ -103,6 +122,9 @@ has atoms moving against each other. At q=π/a the eigenvectors are exactly (0,1
 - **Why `eigvalsh`, not `eig`?** D is Hermitian. `eigvalsh` returns real eigenvalues in
   ascending order, which is exactly the branch ordering.
 - **Why units of √(K/m₁)?** So results don't depend on the chosen numerical values of K and m₁.
+  All report results use K = m₁ = 1, so the numbers *are* in those units. The app plots raw
+  √(K/m) values for whatever you type, so its axis says "input units"; it would be wrong to
+  label them √(K/m₁) when, say, m₁ = 4.
 - **Did you write this with AI?** See the README ground rules. Answer honestly, then show you
   understand the code in section 2.
 
@@ -113,4 +135,6 @@ cd question_3
 ../.venv/bin/streamlit run app.py     # try Case A → Case C, move the q slider in Mode displacements
 ../.venv/bin/python make_figures.py   # regenerates everything in figures/
 ```
-Try: set masses (1, 1) and watch the gap vanish; double K and watch frequencies × 1.414.
+Try: set masses (1, 1) and watch the gap vanish and the branches become "Folded acoustic";
+move the mode q slider to 1.0 and see the degeneracy warning; double K and watch frequencies
+× 1.414.
