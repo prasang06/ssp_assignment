@@ -186,7 +186,9 @@ def fig_mu_vs_T():
 # ---- mu versus carrier concentration ----
 
 def fig_mu_vs_n():
-    n_cm3 = np.logspace(13, 21, 200)
+    # stops at 1e19, the model's stated limit (report Sec. IV): beyond it the
+    # single parabolic Gamma valley no longer describes GaAs
+    n_cm3 = np.logspace(13, 19, 200)
     fig, ax = plt.subplots(figsize=(5.8, 4.0))
 
     for T, c in zip([77.0, 300.0, 600.0], [style.ACOUSTIC, style.OPTICAL[0],
