@@ -11,8 +11,8 @@ and written up as RevTeX papers.
 |---|---|---|
 | Topic | Phonon dispersion in a 1D multi-atomic lattice | Fermi–Dirac statistics in a semiconductor |
 | Core problem | Hermitian eigenvalue problem, `eigvalsh` | Root-find for the chemical potential, `brentq` |
-| Validation | 5 checks, all pass | 6 checks, all pass |
-| Report | [report.pdf](question_3/report/report.pdf) — 17 pp. | [report.pdf](question_5/report/report.pdf) — 14 pp. |
+| Validation | 7 checks, all pass | 9 checks, all pass |
+| Report | [report.pdf](question_3/report/report.pdf) — 20 pp. | [report.pdf](question_5/report/report.pdf) — 18 pp. |
 
 ## Question 3 — Phonon dispersion
 
@@ -28,7 +28,7 @@ at the zone centre and edge, the phonon density of states, and the mode displace
 Key results: the bandgap is produced by mass contrast and closes continuously as the masses are
 equalised; the spring constant scales every frequency as `√K` without changing the shape of the
 spectrum; at the zone boundary the two sublattices decouple completely, with eigenvectors exactly
-`(0,1)` and `(1,0)`.
+`(0,1)` and `(1,0)` whenever the two masses differ.
 
 ## Question 5 — Fermi–Dirac statistics
 
