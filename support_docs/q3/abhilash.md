@@ -4,8 +4,6 @@
 
 Back to [README](../README.md).
 
-> **Version note:** the working tree's `phonon.py` has uncommitted changes (per-bond K, validation, `is_folded`). The committed version, which the report describes, uses a scalar K only. See the README heads-up and know which version you are presenting.
-
 ## 1. 30-second version
 
 > `phonon.py` builds the mass-weighted dynamical matrix `D(q)` for any number of atoms, calls
@@ -24,11 +22,11 @@ Back to [README](../README.md).
 | `dispersion(m, K, a, nq, full_zone)` | `(q, ω)`, ω shape (nq, p); forces the grid to contain q=0 (nq made odd) |
 | `branch_limits(w)` | (min, max) per branch |
 | `band_gaps(w, tol)` | Gaps between consecutive branches |
-| `sound_velocity(m, K, a)` | Analytic slope `a√(K_eff/Σm)` |
+| `sound_velocity(m, K, a)` | Analytic slope `a√(K_eff/Σm)`, `K_eff = 1/Σ(1/K_j)` (springs in series) |
 | `is_folded(m, K)` | True when all masses and springs are equal (p>1): "optical" is just the folded acoustic branch |
-| `dos(...)` | Histogram of ω over a dense mesh, normalised to integrate to p |
+| `dos(..., bins=None)` | Histogram of ω over a dense mesh, normalised to integrate to p; pass `bins` to use common edges across cases |
 | `monatomic_exact`, `diatomic_exact` | Closed forms used only for validation |
-| `modes(q, ...)` | Frequencies and displacement patterns `u_j = e_j/√m_j` |
+| `modes(q, ...)` | Frequencies, displacement patterns `u_j = e_j/√m_j`, and a per-branch `degenerate` flag |
 
 ## 3. `dynamical_matrix` line by line
 
@@ -69,22 +67,26 @@ Why each piece:
 - **DOS.** Histogram `ω` over 4001 q-points, drop the q=+π/a endpoint (same state as −π/a),
   normalise so the integral is p.
 - **Diatomic closed form written stably.** `ω₋²` is computed as `4K sin²/(m₁m₂(s+root))` to avoid
-  cancellation between two nearly equal terms.
+  cancellation between two nearly equal terms, and the root's argument is clipped at 0 (rounding
+  made it slightly negative, hence `nan`, for some equal masses at the zone edge).
+- **Degenerate modes.** Where two branches share a frequency (equal masses at q=π/a), any mix of
+  the two eigenvectors is equally valid and `eigh` returns an arbitrary one. `modes()` flags
+  this so the app can say the drawn pattern isn't unique.
 
 ## 5. Report §Numerical method: five steps to recite
 
-1. Grid of n_q wavevectors across the Brillouin zone.
+1. Grid of n_q wavevectors across the Brillouin zone, n_q odd so q=0 is on it.
 2. Build `D(q)` at each q (accumulating the inter-cell bond).
 3. `eigvalsh` → real ascending ω².
-4. √ after clipping tiny negatives.
-5. Per-branch min/max; gap wherever `min ω_{i+1} > max ω_i`.
+4. √ after clipping round-off-sized negatives; a genuinely negative ω² is an error.
+5. Per-branch min/max; gap wherever `min ω_{i+1} − max ω_i > 1e-9·ω_max`.
 
 Cost: n_q diagonalisations of p×p matrices, negligible, so the app recomputes on every slider
 move.
 
-> **Heads-up:** the code listing printed in the report is the *simplified* version (scalar K).
-> The real file above also supports per-bond K, p=1, and validation. If asked, say the listing
-> shows the core assembly and the full file is in the appendix.
+The code listing in the report's §Numerical method is the p≥2 branch of `dynamical_matrix`
+exactly as above, with per-bond K. The p=1 special case and the input checks are in the full
+file in the appendix.
 
 ## 6. Likely questions
 
@@ -110,5 +112,7 @@ q, w = ph.dispersion([1,4]); print(w.shape, ph.band_gaps(w)); print(ph.sound_vel
 print(ph.dynamical_matrix(0.0,[1,4],1.0,1.0))   # note D[0,1] = -2/√4 = -1, from BOTH bonds
 "
 ```
-Then change `+=` to `=` in `phonon.py` temporarily, rerun `test_phonon.py`, and see it fail (undo
-after!). That is the best way to understand the bug the report talks about.
+Then, in a scratch copy, change `+=` to `=` on the `D[-1, 0]` line, rerun `test_phonon.py`, and
+see it fail. That is the best way to understand the bug the report talks about. Note: breaking
+only the upper line `D[0, -1]` changes nothing, because `eigvalsh` reads only the lower triangle
+of a Hermitian matrix. Be ready for "how does the solver use Hermiticity?"; that is the answer.

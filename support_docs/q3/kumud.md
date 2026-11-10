@@ -4,16 +4,15 @@
 
 Back to [README](../README.md).
 
-> **Version note:** the working-tree `test_phonon.py` has 7 checks (extra edge cases); the committed version and the report have 5. See the README heads-up.
-
 ## 1. 30-second version
 
 > We don't trust a general-purpose code just because the plot looks plausible. `test_phonon.py`
 > compares it against every case that has a closed-form answer: the monatomic and diatomic
-> chains, the sound velocity, the acoustic zero at q=0, and gap closure for equal masses. All
-> five tests pass, with errors around 1e-14. The suite already caught one real bug.
+> chains, the sound velocity, the acoustic zero at q=0, and gap closure for equal masses, plus
+> per-bond springs and a set of numerical edge cases. All seven tests pass, with errors around
+> 1e-14. The suite already caught one real bug.
 
-## 2. The five tests (current run: **5/5 pass**)
+## 2. The seven tests (current run: **7/7 pass**)
 
 | # | Test function | What it checks | Result |
 |---|---|---|---|
@@ -22,12 +21,11 @@ Back to [README](../README.md).
 | 3 | `test_sound_velocity` | Slope of ω₁(q) near q=0 (polyfit on first 5 points) vs analytic `v_s`, for p=2, 3, 1 | 1.6e-8 relative |
 | 4 | `test_acoustic_zero` | ω₁(q=0) = 0 for several masses | 0 exactly |
 | 5 | `test_gap_closure` | Equal masses → 0 gaps; unequal masses → exactly 1 gap | pass |
+| 6 | `test_per_bond_springs` | (a) a list of equal K gives the same ω as scalar K; (b) unequal bonds K=(1,3,0.5): ω₁(0)=0 and the slope matches the series-spring `v_s` | (a) exact; (b) ω₁(0) 1.7e-8, v 9.5e-5 |
+| 7 | `test_robustness` | `diatomic_exact` finite for equal masses and accurate at mass ratio 1e9; gaps independent of the unit of K; no overflow for masses ~1e160; even nq still samples q=0; degeneracy flagged at the equal-mass zone edge; K<0 raises an error | pass |
 
-The report table lists six rows because monatomic and zone-folding are shown separately.
-
-> **Stale number in the report.** The report's table gives the zone-folding error as 1.4e-4. The
-> current test compares at *matched q* and gets 3.5e-14. The test passes either way. Quote the
-> new value or just say "to machine precision".
+The report table has eight rows because monatomic and zone-folding are one test function but two
+rows. The zone-folding value is 3.5e-14 (comparing at *matched q*); an old draft said 1.4e-4.
 
 ## 3. Why each test is meaningful
 
@@ -42,6 +40,13 @@ The report table lists six rows because monatomic and zone-folding are shown sep
    for p=3 where no closed form exists.
 4. **ω₁(0)=0.** Translational invariance. Fails if bonds are overwritten instead of added.
 5. **Gap closure.** Qualitative physics: gap ⇔ mass contrast.
+6. **Per-bond springs.** The code accepts one K per bond. With unequal bonds there is no closed
+   form, but two things must still hold: the acoustic zero (translational invariance), and the
+   long-wavelength slope, where the p springs act **in series**, `K_eff = 1/Σ(1/K_j)`.
+7. **Robustness.** Each sub-check is a bug found by the numerical-safety review: `nan` from
+   rounding in the closed form, cancellation at extreme mass ratio, a gap threshold that
+   depended on units, overflow in `√(m_j m_k)`, a grid that missed q=0, and negative K being
+   silently clipped to ω=0. The test pins each fix.
 
 ## 4. The bug the suite caught (tell this story)
 
@@ -57,11 +62,13 @@ def check(name, ok, detail=""):
     print(f"[{'PASS' if ok else 'FAIL'}] {name}" + ...)
     return ok
 ```
-Each test returns a bool; `__main__` runs all, prints `n/5 checks passed`, and exits non-zero on
+Each test returns a bool; `__main__` runs all, prints `n/7 checks passed`, and exits non-zero on
 any failure (so it could be wired into CI).
 
 Tolerances: 1e-10 for exact-formula comparisons; 1e-3 for the slope test (finite-difference
-accuracy); 1e-8 for the zero mode.
+accuracy); 1e-8 for the zero mode at equal springs, and 1e-7 for it with unequal springs.
+Why the looser one? ω = √(eigenvalue), so a round-off eigenvalue of ~1e-16 shows up as
+~1e-8 in ω. That is √eps, the floor for any square-rooted zero.
 
 ![validation](../../question_3/figures/validation.png)
 *Numerical points (markers) sit on the analytic diatomic curves (grey) over the whole zone.*
@@ -85,9 +92,17 @@ accuracy); 1e-8 for the zero mode.
 
 ```bash
 cd question_3
-../.venv/bin/python test_phonon.py       # expect 5/5
+../.venv/bin/python test_phonon.py       # expect 7/7
 ```
-Then break it on purpose (in a scratch copy): change `+=` to `=` on `D[0, -1]` in `phonon.py`,
-rerun, note which tests fail, and revert.
+Then break it on purpose (in a scratch copy): change `+=` to `=` on the **`D[-1, 0]`** line
+(the lower-triangle one) in `phonon.py`, rerun, and note which tests fail. Five of seven fail;
+the two that still pass (monatomic/folding and per-bond springs) only use p=1 and p=3, where
+the inter-cell bond has its own matrix slot, so `=` and `+=` do the same thing.
+
+Why `D[-1, 0]` and not `D[0, -1]`? `eigvalsh` (and `eigh`) read **only the lower triangle** of
+the matrix by default and assume the rest is its conjugate. Break only the upper line
+`D[0, -1]` and all 7 checks still pass, because the solver never looks at it. That is a good
+answer to "how does the solver use Hermiticity?", and an honest blind spot: nothing in the suite
+checks that D is actually Hermitian.
 
 Also be ready to explain `diatomic_exact` (in `phonon.py`): the cancellation-safe form of ω₋².

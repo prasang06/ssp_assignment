@@ -37,7 +37,7 @@ nearest-neighbour only; 1D.
 | Conclusions, references, build | `report.tex` | You |
 
 Key numbers to remember: Case A gap 0.7071; Case B 0.0658; Case C 0.1985 and 0.4501; ω₁(0)=0;
-tests: 5 functions, all pass at ~1e-14.
+tests: 7 functions, all pass, exact-formula checks at ~1e-14.
 
 ## 4. References (the `thebibliography` block at the end of `report.tex`)
 
@@ -67,18 +67,23 @@ re-derived in the report from the 2×2 determinant).
 - References are an inline `thebibliography` block in `report.tex` (the `.bbl`/`.blg` files are
   build outputs from the RevTeX bibliography step).
 
-**Two known inconsistencies in the current report (fix or be ready to explain):**
-1. The listing in §Numerical method is a *simplified* snippet labelled "verbatim from
-   `phonon.py`". The real function supports per-bond K, p=1, and validation, so the label is
-   not literally true. Easy fix: change "verbatim" to "the core of" (or include the real code).
-2. The validation table's zone-folding row says `1.4e-4`; the current test gives about `3.5e-14`.
-   Update the table to match the test output.
+**Report state after the review fixes (PR #3):**
+1. The §Numerical method listing now matches `phonon.py` exactly (the p≥2 branch, with per-bond
+   K); its caption says so. The p=1 case and the input checks are in the appendix listing.
+2. The validation table is current: zone folding 3.5e-14, plus rows for per-bond springs and
+   robustness ("Seven checks run").
+3. Text corrections made: why the q=0 optical frequency is √(2K/μ) (two springs per atom, not
+   "a shared spring"); the zone-edge eigenvectors are (0,1) and (1,0) only for m₁ ≠ m₂; the DOS
+   panels share one bin width.
+4. **Still open:** the interface screenshots predate the fixes (the app's axis label now reads
+   "input units"). If asked, say the numbers are the same and the screenshots weren't retaken.
 
 ## 6. Likely questions
 
 - **What's the main result of your project?** Mass contrast opens a bandgap; K is a pure scale.
 - **What did validation show?** Agreement with analytic limits to ~1e-14; caught the `=` vs `+=`
-  bug.
+  bug. A later review added regression checks for numerical edge cases (overflow, `nan`,
+  unit-dependent gap detection, unstable input).
 - **Limitations?** Harmonic, 1D, nearest-neighbour; no anharmonicity, no 3D polarisations.
 - **How would you extend it?** Next-nearest-neighbour springs, a defect (mass impurity) for a
   localised mode, 2D/3D, thermal properties from the DOS.

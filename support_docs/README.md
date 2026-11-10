@@ -49,38 +49,42 @@ states `D(E) ∝ √(E−E_c)` above the conduction-band edge. The carrier densi
 (non-degenerate: μ is below the band edge). At high doping it is degenerate (μ well above the
 edge, a Fermi sphere exists). `E_F` is `μ` at T=0; the thing that varies with T is `μ(T)`.
 
-## Heads-up: the code has uncommitted changes
+## Which version of the code these guides describe
 
-While these guides were being written, `phonon.py`, `fermi.py`, both test files, both `app.py`
-files and `make_figures.py` were modified in the working tree (not by these guides), alongside
-two new review files (`PHYSICS_REVIEW.md`, `NUMERICAL_SAFETY_REVIEW.md`). Consequences:
+The guides match the code and reports **after the review fixes** (the physics and numerical-safety
+reviews, PR #3). That version is what gets presented: `test_phonon.py` runs **7** checks and
+`test_fermi.py` runs **9**, and both reports quote those numbers. If you remember an older
+figure (5/6 checks, a Boltzmann "error" of 1.3e-4, a zone-folding error of 1.4e-4), it is out of
+date; don't quote it.
 
-- The **committed code and the reports** have 5 phonon tests and 6 Fermi tests. The **working
-  tree** now runs 7 and 9 tests, and `fermi.py` gained `_check_positive`, `_quad` and a
-  `valleys` option; `phonon.py` gained per-bond `K`, input validation and `is_folded`.
-- These guides describe the code as it stood when they were written and the 5/6 tests quoted in
-  the reports. **Before the presentation, agree on one version**, then re-read the guides for
-  your file: either commit the changes and update the reports, or revert to the committed code.
-  Whoever presents a file must know the version that will actually be shown.
+What changed, in one line each, so nobody is surprised in the viva:
+- **Q3 `phonon.py`:** per-bond spring constants, input validation, an error for unstable
+  lattices (negative ω²) instead of silently clipping, overflow-safe `√m_j·√m_k`, relative gap
+  tolerance, `is_folded`, and `modes()` now also says when two branches are degenerate.
+- **Q3 app:** "folded acoustic" labels for equal masses, a degenerate-mode warning, frequency
+  axis labelled "input units", bounded inputs.
+- **Q5 `fermi.py`:** a more accurate `F_{1/2}` (good to ~1e-15 for any η), a root bracket built
+  from the two closed-form limits, per-valley `k_F`/`v_F` for Si and Ge, errors for T=0 or n=0.
+- **Q5 app:** warnings when μ nears the valence band, when donors would freeze out, and above
+  1e19 cm⁻³; non-degenerate threshold is η < −3; n slider stops at 1e20.
 
-## Two things in the repo to know about (honest flags)
+## Things in the repo to know about (honest flags)
 
-1. **Q3 report vs code.** The code listing in the Q3 report's "Numerical method" section is a
-   *simplified* version (a single scalar `K`, no p=1 special case). The actual `phonon.py` also
-   supports per-bond spring constants, a p=1 branch, input validation and an instability check.
-   The report says "verbatim". If asked, say the listing shows the core idea and the full file
-   is in the appendix.
-2. **Q3 validation table is stale in one row.** The report table gives the zone-folding error
-   as `1.4e-4`; the current test (which compares at matched q) gives about `3.5e-14`. The test
-   passes either way. Don't quote the old number.
+1. **Interface screenshots** in both reports were taken before the review fixes, so small
+   details (the Q3 frequency-axis label, the Q5 banner wording) differ from the live app. The
+   numbers shown are unchanged. If asked, say so.
+2. **Q5 is a single-band, fixed-n model.** It has no holes and no donor levels. The app now
+   *warns* when that matters (μ below the valence band, freeze-out at low T) rather than
+   modelling it. Know this as the main limitation, and the fix: solve `n − p = N_D⁺`.
 
-Both reports say "five checks": there are five test functions in `test_phonon.py`, and the
-report table splits them into six rows (monatomic and zone-folding are one test function).
+Check counts versus table rows: Q3 has 7 test functions and the report table has 8 rows
+(monatomic and zone-folding are one function). Q5 has 9 functions; the table has 9 rows because
+`F_{1/2}` gets two rows, and the input-guard check is mentioned in the caption instead.
 
 ## Commands (from the repo root)
 
 ```bash
-cd question_3 && ../.venv/bin/python test_phonon.py    # 5/5 pass
-cd question_5 && ../.venv/bin/python test_fermi.py     # 6/6 pass
+cd question_3 && ../.venv/bin/python test_phonon.py    # 7/7 pass
+cd question_5 && ../.venv/bin/python test_fermi.py     # 9/9 pass
 .venv/bin/streamlit run streamlit_app.py               # both apps in one UI
 ```
