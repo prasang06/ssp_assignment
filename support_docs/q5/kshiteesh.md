@@ -1,120 +1,121 @@
-# Kshiteesh: Q5 Interface Section and Assembly
+# Kshiteesh: Q5 Numerical Core (`fermi.py`)
 
-**Your part:** report §Interface (inputs, outputs, degeneracy flag, GaAs/Si/Ge screenshots),
-conclusions, references, appendix listings, final build.
+**Your part:** `question_5/fermi.py`. Read [THEORY.md](THEORY.md) first: this file is that physics in code.
 
 Back to [README](../README.md).
 
-> The interface code (`app.py`) was written by Prasang. Your job is to **know it and explain it**:
-> run it, understand what each control does, and what each output means. You are also the
-> person with the broadest view of the Q5 report.
-
 ## 1. 30-second version
 
-> The Streamlit app takes the band gap, effective mass, temperature, carrier concentration and an
-> energy range, with presets for GaAs, Si and Ge. It solves for μ with the full Fermi–Dirac
-> integral, shows μ−E_c, E_F, k_F, v_F, T_F with a regime banner (via η), and plots the band
-> diagram with f(E), D(E) with its occupied part, and μ against T and n. Nothing is approximated
-> for speed.
+> `fermi.py` evaluates the dimensionless Fermi–Dirac integral `F_{1/2}(η)` by quadrature, wraps
+> it in a function giving carrier density `n(μ,T)`, and finds the chemical potential for a
+> target `n` with Brent's root finder, inside a bracket built from the two closed-form limits.
+> It also provides the DOS, an overflow-safe `f(E)`, and the degenerate-gas quantities,
+> including per-valley values for multi-valley materials.
 
-## 2. The app (`question_5/app.py`)
+## 2. File map
 
-| Control | Meaning |
+| Function | Job |
 |---|---|
-| Preset | GaAs (1.42 eV, 0.067), Si (1.12, 1.08), Ge (0.66, 0.56). Masses are density-of-states masses |
-| Band gap `E_g`, mass `m*/mₑ` | Editable; keyed on the preset so changing preset updates them |
-| `T` slider | 1–1000 K |
-| `log₁₀ n` slider | 12–21 (cm⁻³), steps of 0.1 |
-| Energy range | How far above/below the gap to draw |
+| constants | `HBAR, M_E, K_B, EV` in SI |
+| `_check_positive(**kw)` | Raises `ValueError` for T, n or m* that is ≤ 0 or not finite |
+| `fermi_dirac(E, mu, T)` | `f(E)` via `scipy.special.expit(-(E−μ)/kT)`: no overflow |
+| `dos(E, m_eff, Ec)` | `D(E)`, exactly zero for `E ≤ Ec` |
+| `n_c(m_eff, T)` | `N_c = 2(m*kT/2πħ²)^{3/2}` |
+| `_quad(fn, a, b)` | `scipy.integrate.quad` with a purely relative tolerance (1e-12); raises if it isn't met |
+| `fermi_integral_half(eta)` | `F_{1/2}(η)`: factors out `e^η` for η<0; splits at x=η for η≥0 (see §4) |
+| `carrier_density(mu, T, m_eff, Ec)` | `n = N_c (2/√π) F_{1/2}(η)` |
+| `solve_mu(n, T, m_eff, Ec)` | bracket from the limits + `brentq` on η, returns `μ = E_c + η kT` |
+| `boltzmann_mu` | closed-form non-degenerate μ, for validation |
+| `fermi_quantities(n, m_eff, valleys=None)` | `E_F, k_F, v_F, T_F`; with `valleys=(M_c, m_l, m_t)` also per-valley `k_F_l, k_F_t, v_F_l, v_F_t` |
+| `degeneracy(mu, T, Ec)` | `η = (μ−E_c)/kT` |
+| `sommerfeld_mu` | `E_F[1 − (π²/12)(kT/E_F)²]`, for validation |
 
-**Outputs**
-- Five metrics: `μ−E_c` (meV), `E_F` above E_c (meV), `k_F` (nm⁻¹), `v_F` (10⁵ m/s), `T_F` (K).
-- **Regime banner** from `η = (μ−E_c)/k_BT`:
-  - `η > 2`: **degenerate** (green), so k_F, v_F, T_F are physical.
-  - `η < −2`: **non-degenerate** (amber), μ below the edge, Boltzmann; k_F, v_F, T_F are formal.
-  - otherwise **intermediate**: need the full integral.
-- Left plot: band edges + μ, next to `f(E)` on the same energy axis.
-- Right plot: `D(E)` and `D(E)f(E)` on a log axis, area = n.
-- Two sweeps: `μ−E_c` vs T (marker = current T, dotted = E_F) and vs n (marker = current n).
+## 3. The method, four steps (report §Numerical method)
 
-![GaAs UI](../../question_5/figures/ui_gaas_top.png)
+1. Evaluate `F_{1/2}(η)` by quadrature with a relative tolerance of 1e-12; upper limit
+   `max(η,0)+60` (the integrand decays like `e^{−(x−η)}`, so +60 is far past negligible).
+2. Solve `n(η) = n_target` for η with Brent's method.
+3. **Bracket** between the two closed forms: the root always lies between `ln(n/N_c)` (Boltzmann)
+   and `E_F/kT` (T=0 sphere). A fixed bracket fails at low T, where η can be 1e4 or more.
+4. Return `μ = E_c + η k_BT`.
 
-Presets screenshots: `figures/ui_gaas.png`, `ui_si.png`, `ui_ge.png`. In the report the GaAs run
-is n=1e17, 300 K, banner η = −1.39 (neither limit applies cleanly).
+## 4. Design decisions to be able to defend
 
-## 3. Software flow (be able to say it)
+- **Solve for η, not μ.** η is dimensionless and O(1–10), so the root finder doesn't deal with
+  joules (~1e-19). Units sit in one place (`N_c`).
+- **Cutoff scales with η.** A fixed energy cutoff would silently lose carriers in the degenerate
+  case, where the integrand extends far above the band edge.
+- **Relative tolerance only (`epsabs=0`).** `quad`'s default absolute tolerance (~1.5e-8)
+  becomes a ~1e-3 *relative* error once `F_{1/2}` is tiny (η ≲ −20). Using only a relative
+  tolerance, and checking the returned error estimate, removes that silent floor.
+- **Factor out `e^η` for η < 0.** `√x·expit(η−x) = e^η · √x e^{−x}/(1+e^{η−x})`, so quad
+  integrates an O(1) function however negative η is.
+- **Split at x = η for η ≥ 0.** The occupation steps from 1 to 0 at x = η. Splitting there lets
+  quad resolve the step even at η ~ 1e5. Below `η − 60` the occupation is 1 to within `e^{−60}`,
+  so that piece is just `(2/3)x^{3/2}`.
+- **`expit` instead of `1/(exp(x)+1)`.** For large positive `x`, `exp(x)` overflows to `inf`.
+  `expit(x)=1/(1+e^{−x})` is stable for all x.
+- **`solve_mu` bracket logic.** Two facts bound the root. Boltzmann *overestimates* n at a given
+  η: dropping the +1 makes every state look fuller, `e^{−(x−η)} > 1/(1+e^{x−η})`. So the
+  Boltzmann η for a given n is too low, and the true η is **above** `η_B = ln(n/N_c)`. The T=0 sphere
+  *underestimates* n (`F_{1/2}(η) > (2/3)η^{3/2}`), so the true η is **below** `η_d = E_F/kT`.
+  The bracket is `[η_B − 1, max(η_d, η_B) + 1]`, widened only if round-off makes it touch the
+  root; residuals are stored, not recomputed. Raises `RuntimeError` if it still can't bracket.
+- **Relative residual.** The function handed to `brentq` is `n(η)/n_target − 1`, so it is O(1)
+  whatever n is.
+- **`brentq` tolerances:** `xtol=1e-13`, `rtol=4·eps`. Brent combines bisection (guaranteed)
+  with secant/inverse-quadratic steps (fast).
+- **Multi-valley (Si, Ge).** `m_de = M_c^{2/3}(m_l m_t²)^{1/3}` gives the right `N_c` and `E_F`, but
+  each valley holds only `n/M_c`, so the mean `k_F` is `(3π²n/M_c)^{1/3}` (smaller by `M_c^{1/3}`,
+  1.82 for Si) and `v_F` differs along the long and short valley axes: `v_i = ħk_i/m_i`.
+- **Input guards.** T = 0, n = 0 or m* = 0 raise `ValueError` instead of producing `nan`.
+- **DOS zero in the gap.** `dos` returns 0 where `E ≤ Ec` using a mask.
+- **Units.** Everything is SI internally (joules, m⁻³). The UI converts to eV and cm⁻³
+  (`1 cm⁻³ = 1e6 m⁻³`).
 
-`n = 10**log_n * 1e6` (m⁻³) → `solve_mu` → `η` → `fermi_quantities` → banner/metrics →
-plots using `fermi_dirac` and `dos` → sweeps call `solve_mu` 90 times each. The app is a thin
-wrapper over `fermi.py`.
+## 5. Maths behind `carrier_density`
 
-## 4. Conclusions (report §Conclusions): five bullets
+`n = ∫ D f dE`. With `x=(E−E_c)/kT`: `D dE = (1/2π²)(2m*/ħ²)^{3/2}(kT)^{3/2}√x dx`, and pulling
+constants out yields `N_c (2/√π) F_{1/2}(η)`. Check: for η→−∞, `F_{1/2} → (√π/2) e^η`, so
+`n → N_c e^η`: the Boltzmann result.
 
-1. Classical/degenerate boundary is near `n ~ N_c` (4.35e17 cm⁻³ for GaAs at 300 K); equivalently
-   degeneracy needs `T ≪ T_F`.
-2. μ falls with T because `D(E) ∝ √(E−E_c)` offers more states above μ than below.
-3. In the degenerate regime that fall is the `T²` Sommerfeld correction.
-4. μ rises logarithmically with n while non-degenerate and as `n^{2/3}` once degenerate.
-5. Effective mass, not band gap, controls how readily a material becomes degenerate.
+## 6. Likely questions
 
-**Limitations stated:** single isotropic parabolic valley (DOS masses make N_c right but k_F, v_F
-describe one equivalent sphere); GaAs L/X valleys limit the doping range to ≤1e19; band
-non-parabolicity ignored; no valence band, no dopant-ionisation statistics; n is an input, not
-solved from dopant levels.
+- **Why Brent's method?** Robust (bracketed, always converges) and fast (superlinear); we don't need
+  derivatives.
+- **What if it fails to converge?** Bracketing error is raised explicitly rather than returning a
+  wrong number.
+- **Why does low T make bracketing hard?** `n(η)` becomes nearly a step (it jumps when μ crosses
+  E_c), so any fixed starting interval may not contain the sign change.
+- **What does `quad` do?** Adaptive Gauss–Kronrod quadrature; here `limit=400` subdivisions,
+  `epsabs=0`, `epsrel=1e-12`.
+- **How accurate is `F_{1/2}`?** ~1e-15 relative against the exact series for η between −40 and
+  −0.5, and against the asymptotic series for η up to 1e7 (Nithin's test 7 in `test_fermi.py`).
+- **Why not use an approximation for F_{1/2}?** The point is to span both regimes with one code
+  path; approximations (like Blakemore's, cited in the report) are only accurate in limits.
+- **How is accuracy checked?** Nine validation checks (Nithin's file, `test_fermi.py`), including a round trip
+  with error 7e-15 and direct checks of `F_{1/2}`.
+- **Why is `T_F` computed even when non-degenerate?** The question asks for it; the app flags it as
+  formal via η.
+- **Complexity?** Each `solve_mu` is ~10–30 `quad` calls. The app's sweeps (90 T points, 81 n
+  points) take well under a second and are cached, so they are only recomputed when an input
+  that affects them changes.
 
-## 5. References (inline `thebibliography` in `report.tex`)
-
-| Key | Source | Used for |
-|---|---|---|
-| kittel | Kittel, *Intro to Solid State Physics*, 8th ed., ch. 6 | Free-electron Fermi gas |
-| ashcroft | Ashcroft & Mermin, ch. 2 and ch. 28 | Sommerfeld theory, semiconductors |
-| sze | Sze & Ng, *Physics of Semiconductor Devices*, ch. 1 | Carrier statistics |
-| blakemore | Blakemore, *Solid-State Electronics* 25, 1067 (1982) | Fermi–Dirac integral approximations |
-| scipy | Virtanen et al., *Nature Methods* 17, 261 (2020) | `quad`, `brentq` |
-| numpy | Harris et al., *Nature* 585, 357 (2020) | Arrays |
-| streamlit | Streamlit docs | Interface |
-
-(`reportNotes.bib` only contains RevTeX control entries; references are typed in `report.tex`.)
-
-## 6. Assembly
-
-- RevTeX 4-2 (`aps, prb, reprint`); `latexmk -pdf report.tex` inside `report/`.
-- Appendix uses `\lstinputlisting` to include `fermi.py`, `test_fermi.py`, `make_figures.py`,
-  `app.py` directly, so listings can't drift from the code.
-- Figures from `question_5/figures/*.png`.
-
-## 7. Project map for Q5 (so you can answer at overview level)
-
-| Piece | File | Owner |
-|---|---|---|
-| Theory | report §Theory | Guhan |
-| Numerical core | `fermi.py` | Naman |
-| Validation (6 checks) | `test_fermi.py` | Nithin |
-| Results and figures | `make_figures.py`, §Results | Praveen |
-| Interface section, conclusions, build | `app.py` (explainer), `report.tex` | You |
-
-## 8. Likely questions
-
-- **What do the inputs do?** (Table above.) T and n change μ; m* sets N_c and the DOS; E_g only
-  shifts E_c (it doesn't change μ−E_c).
-- **Why does the banner use η?** η compares μ−E_c with k_BT: the actual criterion for degeneracy.
-- **Why show k_F, v_F, T_F in the non-degenerate regime?** The question asks for them. We show
-  them, flagged as formal.
-- **Is anything approximated in the app?** No: the full integral is solved at every slider change
-  and at every sweep point.
-- **Why do the Si/Ge presets use different masses from the textbook values?** They're
-  density-of-states masses (valley degeneracy included); conductivity masses are smaller.
-- **Why does μ−E_c not depend on E_g?** In this model E_c is just the reference; only m*, n and T
-  matter.
-- **Main limitation?** Single parabolic valley, conduction band only.
-- **How would you extend it?** Add holes/valence band and solve charge neutrality with dopant
-  levels (`n = p + N_d⁺`), non-parabolic bands, multiple valleys.
-
-## 9. Run it yourself
+## 7. Run it yourself
 
 ```bash
 cd question_5
-../.venv/bin/streamlit run app.py
+../.venv/bin/python -c "
+import fermi as f
+M=0.067*f.M_E; n=1e17*1e6
+mu=f.solve_mu(n,300,M,1.42*f.EV)
+print((mu-1.42*f.EV)/f.EV*1000,'meV  eta=',f.degeneracy(mu,300,1.42*f.EV))
+print(f.fermi_quantities(n,M))
+"
 ```
-Do this: GaAs, 300 K, log n = 16 → 17 → 19 and watch the banner change; switch to Si and note
-μ−E_c drops at the same n; then set T=1 and check μ ≈ E_F.
+Expect μ−E_c ≈ −35.9 meV and η ≈ −1.39, matching the report's GaAs materials table.
+Try `n=1e19` and `T=1` to watch μ → E_F. For Si, compare
+`f.fermi_quantities(1e26, 1.08*f.M_E)` with
+`f.fermi_quantities(1e26, 1.08*f.M_E, valleys=(6, 0.98*f.M_E, 0.19*f.M_E))`: `E_F` agrees
+(72.7 vs 72.5 meV; the valley masses give m_de = 1.084, not exactly 1.08), but `k_F` drops from
+1.44 to 0.79 nm⁻¹.

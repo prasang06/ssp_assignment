@@ -1,99 +1,118 @@
-# Abish: Q3 Conclusions, References and Assembly
+# Abish: Q3 Physics Core (`phonon.py`)
 
-**Your part:** report §Conclusions, the references list, appendix source listings, final LaTeX
-build.
+**Your part:** `question_3/phonon.py`. Read [THEORY.md](THEORY.md) first: this file is that derivation in code.
 
 Back to [README](../README.md).
 
-Because your part spans the whole report, you need the **big picture of Q3** best of anyone in
-the group. Read all of this and skim the whole report once.
-
 ## 1. 30-second version
 
-> We derived the equations of motion for a p-atom chain, reduced them to a p×p Hermitian
-> eigenvalue problem, implemented it in Python, validated it against closed forms, and used it
-> to show that mass contrast opens the gap, K just scales all frequencies by √K, and flat
-> branches give DOS peaks. Limitations: harmonic, nearest-neighbour, 1D.
+> `phonon.py` builds the mass-weighted dynamical matrix `D(q)` for any number of atoms, calls
+> `numpy.linalg.eigvalsh` on it for each q on a grid, and takes square roots to get the p branch
+> frequencies. Helper functions extract branch limits, gaps, the sound velocity and a DOS
+> histogram. There is no iteration: it is a direct diagonalisation.
 
-## 2. Conclusions (report §Conclusions): four bullets to know
+## 2. File map
 
-1. p atoms per cell → 1 acoustic + (p−1) optical branches, up to p−1 gaps.
-2. The gap comes from mass contrast and closes continuously: 0.7071 at mass ratio 4, 0.0658 at
-   1.1, 0 at 1.
-3. K scales all frequencies as √K and changes nothing else about the spectrum.
-4. Flat branches → van Hove peaks in the DOS and negligible group velocity.
+| Function | Job |
+|---|---|
+| `_masses`, `_springs` | Validate input (positive, finite, right length); a scalar K is broadcast to p bonds |
+| `dynamical_matrix(q, m, K, a)` | Builds the p×p complex Hermitian matrix |
+| `_frequencies(w2, D)` | √ of eigenvalues; clips only *round-off-sized* negatives, raises if the lattice is unstable |
+| `frequencies_at(q, ...)` | Branch frequencies at one q |
+| `dispersion(m, K, a, nq, full_zone)` | `(q, ω)`, ω shape (nq, p); forces the grid to contain q=0 (nq made odd) |
+| `branch_limits(w)` | (min, max) per branch |
+| `band_gaps(w, tol)` | Gaps between consecutive branches |
+| `sound_velocity(m, K, a)` | Analytic slope `a√(K_eff/Σm)`, `K_eff = 1/Σ(1/K_j)` (springs in series) |
+| `is_folded(m, K)` | True when all masses and springs are equal (p>1): "optical" is just the folded acoustic branch |
+| `dos(..., bins=None)` | Histogram of ω over a dense mesh, normalised to integrate to p; pass `bins` to use common edges across cases |
+| `monatomic_exact`, `diatomic_exact` | Closed forms used only for validation |
+| `modes(q, ...)` | Frequencies, displacement patterns `u_j = e_j/√m_j`, and a per-branch `degenerate` flag |
 
-**Limitations stated:** harmonic approximation (no thermal expansion or phonon lifetimes);
-nearest-neighbour only; 1D.
+## 3. `dynamical_matrix` line by line
 
-## 3. The whole project in one table (so you can answer anything at overview level)
+```python
+sm = np.sqrt(m)                       # √m_j; products √m_j·√m_k avoid overflow vs √(m_j m_k)
+D = np.zeros((p, p), dtype=complex)
+if p == 1:
+    D[0,0] = 2K/m * (1 - cos(qa))     # the one atom bonds to both neighbouring cells
+    return D
+np.fill_diagonal(D, (np.roll(K,1) + K) / m)   # each atom: bond on its left + bond on its right
+for j in range(p-1):                  # intra-cell bonds, symmetric
+    c = -K[j]/(sm[j]*sm[j+1]);  D[j,j+1] = c;  D[j+1,j] = c
+c = -K[-1]*exp(-1j*q*a)/(sm[0]*sm[-1])        # inter-cell bond: the only q-dependence
+D[0,-1] += c;  D[-1,0] += conj(c)             # += not = (p=2: shares a slot with intra bond)
+```
 
-| Piece | File | Owner |
-|---|---|---|
-| Theory (EOM → Bloch → D(q)) | report §Theory | Haresh |
-| Physics core | `phonon.py` | Abhilash |
-| Validation | `test_phonon.py` | Kumud |
-| Interface + figures + results | `app.py`, `make_figures.py` | Prasang |
-| Conclusions, references, build | `report.tex` | You |
+Why each piece:
+- **`+=` on the inter-cell bond.** At p=2, `D[0,1]` already holds the intra-cell bond.
+  Overwriting would drop it and break the acoustic branch at q=0.
+- **p=1 special case.** With one atom the "intra" and "inter" bonds both land on the diagonal:
+  `2K/m − 2K/m cos(qa) = 4K/m sin²(qa/2)`, matching the monatomic closed form.
+- **`np.roll(K, 1)`.** Spring `K[j]` joins atom j to j+1 (and `K[p−1]` joins the last atom to the
+  next cell's first). Atom j's two springs are therefore `K[j−1]` and `K[j]`.
+- **Conjugate for the lower triangle.** Makes D exactly Hermitian.
 
-Key numbers to remember: Case A gap 0.7071; Case B 0.0658; Case C 0.1985 and 0.4501; ω₁(0)=0;
-tests: 5 functions, all pass at ~1e-14.
+## 4. Other design decisions you should know
 
-## 4. References (the `thebibliography` block at the end of `report.tex`)
+- **`eigvalsh`** exploits Hermiticity: real eigenvalues, ascending order, so branch 0 is
+  acoustic and no sort is needed.
+- **Clipping before √.** At q=0 the acoustic eigenvalue is 0 up to round-off and can come out as
+  −1e-17, whose √ is `nan`. `_frequencies` clips values above `−100·eps·max|D|` but *raises* for
+  anything genuinely negative (an unstable lattice).
+- **Grid contains q=0.** For nearest-neighbour chains, branch extrema sit at q=0 and q=π/a, so
+  the grid is forced to include them; otherwise limits and gap edges would be read off the wrong
+  points.
+- **Gap rule.** Gap between branches i and i+1 exists if `max_q ω_i < min_q ω_{i+1}`, with a
+  relative tolerance so the answer is unit-independent.
+- **DOS.** Histogram `ω` over 4001 q-points, drop the q=+π/a endpoint (same state as −π/a),
+  normalise so the integral is p.
+- **Diatomic closed form written stably.** `ω₋²` is computed as `4K sin²/(m₁m₂(s+root))` to avoid
+  cancellation between two nearly equal terms, and the root's argument is clipped at 0 (rounding
+  made it slightly negative, hence `nan`, for some equal masses at the zone edge).
+- **Degenerate modes.** Where two branches share a frequency (equal masses at q=π/a), any mix of
+  the two eigenvectors is equally valid and `eigh` returns an arbitrary one. `modes()` flags
+  this so the app can say the drawn pattern isn't unique.
 
-The references are typed inline in `report.tex`. `reportNotes.bib` only holds RevTeX control
-entries, so don't call it the bibliography. The seven Q3 entries and where they're used:
+## 5. Report §Numerical method: five steps to recite
 
-| Key | Source | Used for |
-|---|---|---|
-| kittel | Kittel, *Introduction to Solid State Physics*, 8th ed., ch. 4 | Lattice vibrations, diatomic chain |
-| ashcroft | Ashcroft & Mermin, *Solid State Physics*, ch. 22–23 | Harmonic crystal |
-| dove | Dove, *Introduction to Lattice Dynamics* (CUP 1993) | Dynamical matrix formalism |
-| tong | Tong, *Lectures on Solid State Physics* (Cambridge) | Lecture notes |
-| numpy | Harris et al., *Nature* 585, 357 (2020) | `numpy.linalg.eigvalsh` |
-| matplotlib | Hunter, *Comput. Sci. Eng.* 9, 90 (2007) | Plots |
-| streamlit | Streamlit docs | Interface |
+1. Grid of n_q wavevectors across the Brillouin zone, n_q odd so q=0 is on it.
+2. Build `D(q)` at each q (accumulating the inter-cell bond).
+3. `eigvalsh` → real ascending ω².
+4. √ after clipping round-off-sized negatives; a genuinely negative ω² is an error.
+5. Per-branch min/max; gap wherever `min ω_{i+1} − max ω_i > 1e-9·ω_max`.
 
-Be ready to answer "where did you get the diatomic formula?": Kittel ch. 4 (and it is
-re-derived in the report from the 2×2 determinant).
+Cost: n_q diagonalisations of p×p matrices, negligible, so the app recomputes on every slider
+move.
 
-## 5. Assembly: how the report is built
-
-- RevTeX 4-2 (`aps, prb, reprint`), built with `latexmk -pdf report.tex` inside `report/`.
-- Figures are included from the `figures/` PNGs (`\includegraphics`).
-- The appendix source listings use `\lstinputlisting`, so they pull in the *actual* files
-  (`phonon.py`, `test_phonon.py`, `common/style.py`, `make_figures.py`, `app.py`) and cannot
-  drift from the code.
-- References are an inline `thebibliography` block in `report.tex` (the `.bbl`/`.blg` files are
-  build outputs from the RevTeX bibliography step).
-
-**Two known inconsistencies in the current report (fix or be ready to explain):**
-1. The listing in §Numerical method is a *simplified* snippet labelled "verbatim from
-   `phonon.py`". The real function supports per-bond K, p=1, and validation, so the label is
-   not literally true. Easy fix: change "verbatim" to "the core of" (or include the real code).
-2. The validation table's zone-folding row says `1.4e-4`; the current test gives about `3.5e-14`.
-   Update the table to match the test output.
+The code listing in the report's §Numerical method is the p≥2 branch of `dynamical_matrix`
+exactly as above, with per-bond K. The p=1 special case and the input checks are in the full
+file in the appendix.
 
 ## 6. Likely questions
 
-- **What's the main result of your project?** Mass contrast opens a bandgap; K is a pure scale.
-- **What did validation show?** Agreement with analytic limits to ~1e-14; caught the `=` vs `+=`
-  bug.
-- **Limitations?** Harmonic, 1D, nearest-neighbour; no anharmonicity, no 3D polarisations.
-- **How would you extend it?** Next-nearest-neighbour springs, a defect (mass impurity) for a
-  localised mode, 2D/3D, thermal properties from the DOS.
-- **How reproducible is it?** One command each: `test_phonon.py`, `make_figures.py`,
-  `streamlit run app.py`; pinned `requirements.txt`; Python 3.12 via `uv`.
-- **Why RevTeX?** Standard physics-paper format.
-- **What is the relevance to real materials?** Optical phonons couple to infrared light in ionic
-  crystals; phonon DOS enters heat capacity and thermal conductivity.
+- **Why `eigvalsh` and not `eig`?** Hermitian → real, ordered, numerically stable.
+- **What is `D`'s size and why complex?** p×p; the Bloch phase `e^{−iqa}` is complex.
+- **What happens at q=0?** `D(0)` is real, with a zero eigenvalue (rigid translation).
+- **Why clip?** Round-off → tiny negative → `nan` after √.
+- **What if masses are huge or tiny?** Using `√m_j · √m_k` instead of `√(m_j m_k)` avoids overflow
+  in the product.
+- **Why is the DOS a histogram, and what's its weakness?** Simple and cheap; peak heights at van
+  Hove singularities depend on bin width (the true divergence can't be captured).
+- **What does `is_folded` flag?** Equal masses and springs in a p>1 cell, where "optical" branches
+  are just the acoustic branch folded back (true period a/p).
+- **Complexity?** O(n_q · p³).
 
 ## 7. Run it yourself
 
 ```bash
-cd question_3/report && latexmk -pdf report.tex     # needs a TeX install
-cd .. && ../.venv/bin/python test_phonon.py
+cd question_3
+../.venv/bin/python -c "
+import phonon as ph, numpy as np
+q, w = ph.dispersion([1,4]); print(w.shape, ph.band_gaps(w)); print(ph.sound_velocity([1,4]))
+print(ph.dynamical_matrix(0.0,[1,4],1.0,1.0))   # note D[0,1] = -2/√4 = -1, from BOTH bonds
+"
 ```
-Also read the Introduction and Conclusions of the Q5 report so you can say how the two
-questions connect (both end in a density of states; both gaps arise from a basis splitting a
-band: mass contrast in Q3, periodic potential in Q5).
+Then, in a scratch copy, change `+=` to `=` on the `D[-1, 0]` line, rerun `test_phonon.py`, and
+see it fail. That is the best way to understand the bug the report talks about. Note: breaking
+only the upper line `D[0, -1]` changes nothing, because `eigvalsh` reads only the lower triangle
+of a Hermitian matrix. Be ready for "how does the solver use Hermiticity?"; that is the answer.
