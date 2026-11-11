@@ -113,18 +113,19 @@ with left:
                     ha="center", va="center", fontsize=9,
                     bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="none", alpha=0.85))
 
+    qa_pi = q * a / np.pi        # x axis is in units of pi/a, so scale q by a
     for i in range(p):
-        ax.plot(q / np.pi, w[:, i], color=colors[i], label=names[i])
+        ax.plot(qa_pi, w[:, i], color=colors[i], label=names[i])
 
     if show_exact and p <= 2:
         if p == 1:
-            ax.plot(q / np.pi, ph.monatomic_exact(q, masses[0], K, a),
+            ax.plot(qa_pi, ph.monatomic_exact(q, masses[0], K, a),
                     color=style.EXACT, lw=3.0, alpha=0.3, zorder=0, label="Analytic")
         else:
             ac, op = ph.diatomic_exact(q, masses[0], masses[1], K, a)
-            ax.plot(q / np.pi, ac, color=style.EXACT, lw=3.0, alpha=0.3, zorder=0,
+            ax.plot(qa_pi, ac, color=style.EXACT, lw=3.0, alpha=0.3, zorder=0,
                     label="Analytic")
-            ax.plot(q / np.pi, op, color=style.EXACT, lw=3.0, alpha=0.3, zorder=0)
+            ax.plot(qa_pi, op, color=style.EXACT, lw=3.0, alpha=0.3, zorder=0)
     elif show_exact:
         st.caption("No closed form for $p > 2$; the overlay is shown only for $p \\le 2$.")
 
