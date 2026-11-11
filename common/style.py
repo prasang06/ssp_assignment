@@ -17,12 +17,18 @@ EXACT = "#333333"
 
 
 def branch_colors(p):
-    """Acoustic first, then optical. Wraps into greys past 5 branches."""
+    """Acoustic first, then optical. Wraps into greys past 5 branches.
+
+    Role: gives each phonon branch the same colour in the app, the figures and
+    the report."""
     return [ACOUSTIC] + [OPTICAL[i % len(OPTICAL)] for i in range(p - 1)]
 
 
 def apply():
-    """Serif to match the LaTeX body text; grid and spines kept recessive."""
+    """Serif to match the LaTeX body text; grid and spines kept recessive.
+
+    Role: called once at the top of each app and figure script so both questions
+    share one look."""
     plt.rcParams.update({
         "font.family": "serif",
         "font.size": 10,

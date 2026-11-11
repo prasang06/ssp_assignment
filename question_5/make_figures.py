@@ -21,12 +21,14 @@ T_REF = 300.0
 
 
 def ev(E):
+    """Joules -> eV, for axis labels."""
     return E / f.EV
 
 
 # ---- band diagram with f(E) alongside ----
 
 def fig_bands():
+    """bands.png: band edges, mu and f(E) on one energy axis for the GaAs-like reference case (n=1e17, 300 K)."""
     mu = f.solve_mu(N_REF, T_REF, M, EG)
     E = np.linspace(-0.4 * f.EV, EG + 0.6 * f.EV, 2000)
 
@@ -70,6 +72,7 @@ def fig_bands():
 # ---- f(E) sharpening as T falls ----
 
 def fig_occupation():
+    """occupation.png: f(E) around mu at 10-600 K, showing the step soften over a width ~k_BT."""
     mu = f.solve_mu(1e19 * CM3, T_REF, M, EG)
     E = np.linspace(mu - 0.35 * f.EV, mu + 0.35 * f.EV, 2000)
 
@@ -90,12 +93,14 @@ def fig_occupation():
 # ---- D(E), f(E) and the occupied DOS ----
 
 def dos_per_ev_cm3(E, m_eff, Ec):
-    """DOS in the conventional semiconductor units: states eV^-1 cm^-3."""
+    """DOS in the conventional semiconductor units: states eV^-1 cm^-3.
+
+    Role: unit conversion for fig_dos only; the physics is fermi.dos."""
     return f.dos(E, m_eff, Ec) * f.EV * 1e-6
 
 
 def fig_dos():
-    """D(E) and D(E)f(E) across three doping regimes.
+    """dos_occupied.png: D(E) and D(E)f(E) across three doping regimes.
 
     Log y: at n = 1e16 the occupied fraction is ~1e-7 of D(E), so on a linear
     axis the occupied curve would be a flat zero and show nothing.
@@ -141,7 +146,9 @@ def fig_dos():
 # ---- mu versus temperature ----
 
 def fig_mu_vs_T():
-    """Two panels: the crossover below E_c, and the degenerate T^2 law."""
+    """mu_vs_T.png: two panels, the crossover below E_c and the degenerate T^2 law.
+
+    Role: the report's answer to "Fermi level vs temperature"."""
     T = np.linspace(10.0, 700.0, 160)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3.9))
 
@@ -186,6 +193,7 @@ def fig_mu_vs_T():
 # ---- mu versus carrier concentration ----
 
 def fig_mu_vs_n():
+    """mu_vs_n.png: mu - E_c against carrier density at 77, 300 and 600 K, rising into the band as doping increases."""
     # stops at 1e19, the model's stated limit (report Sec. IV): beyond it the
     # single parabolic Gamma valley no longer describes GaAs
     n_cm3 = np.logspace(13, 19, 200)

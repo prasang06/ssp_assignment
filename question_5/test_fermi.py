@@ -8,6 +8,7 @@ CM3 = 1e6                  # cm^-3 -> m^-3
 
 
 def check(name, ok, detail=""):
+    """Print one PASS/FAIL line and return the boolean. Shared by every test below."""
     print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f"  {detail}" if detail else ""))
     return ok
 
@@ -21,6 +22,7 @@ def check(name, ok, detail=""):
 # check is that the numerics reproduce that correction, not just a small gap.
 
 def test_boltzmann():
+    """Low density: solve_mu matches the Boltzmann closed form (including the first FD correction)."""
     worst_gap = worst_corr = 0.0
     T = 300.0
     for n_cm3 in (1e12, 1e14, 1e15):
@@ -39,6 +41,7 @@ def test_boltzmann():
 # ---- 2. degenerate limit: mu -> E_F as T -> 0 ----
 
 def test_degenerate():
+    """High density, T=1 K: mu agrees with the T=0 value E_F (relative error < 1e-4)."""
     n = 1e19 * CM3
     E_F = f.fermi_quantities(n, M)["E_F"]
     mu = f.solve_mu(n, 1.0, M)          # 1 K is deep in the degenerate regime
@@ -49,6 +52,7 @@ def test_degenerate():
 # ---- 3. round trip: the solved mu reproduces n ----
 
 def test_round_trip():
+    """solve_mu then carrier_density returns the original n across many (n, T)."""
     worst = 0.0
     for n_cm3 in (1e14, 1e16, 1e18, 1e20):
         for T in (50.0, 300.0, 600.0):
@@ -61,6 +65,7 @@ def test_round_trip():
 # ---- 4. f(mu) = 1/2 at any temperature ----
 
 def test_half_occupancy():
+    """f(mu) = 1/2 at every temperature."""
     worst = max(abs(f.fermi_dirac(0.3 * f.EV, 0.3 * f.EV, T) - 0.5)
                 for T in (1.0, 77.0, 300.0, 1000.0))
     return check("f(mu) = 1/2", worst < 1e-15, f"max dev {worst:.2e}")
@@ -69,6 +74,7 @@ def test_half_occupancy():
 # ---- 5. Sommerfeld expansion in the degenerate regime ----
 
 def test_sommerfeld():
+    """Strongly degenerate gas: solve_mu follows the Sommerfeld T^2 expansion."""
     n = 1e20 * CM3                       # strongly degenerate, E_F ~ 1 eV
     worst = 0.0
     for T in (20.0, 50.0, 100.0):
@@ -82,6 +88,7 @@ def test_sommerfeld():
 # ---- 6. DOS is zero in the gap and matches the analytic form above Ec ----
 
 def test_dos():
+    """D(E) is zero below E_c and scales as sqrt(E-E_c) above it."""
     Ec = 1.42 * f.EV
     below = f.dos(np.linspace(0.0, Ec, 50), M, Ec)
     E = Ec + np.array([0.01, 0.1, 0.5]) * f.EV
@@ -94,6 +101,7 @@ def test_dos():
 # ---- 7. F_{1/2} itself, against independent closed forms at both extremes ----
 
 def test_fermi_integral():
+    """F_1/2 against its convergent series (eta<0) and asymptotic form (eta>>1)."""
     # eta < 0: convergent series (sqrt(pi)/2) sum (-1)^{k+1} e^{k eta} / k^{3/2}
     k = np.arange(1, 400)
     worst_neg = max(abs(f.fermi_integral_half(eta) /
@@ -112,6 +120,7 @@ def test_fermi_integral():
 # ---- 8. multi-valley Fermi quantities ----
 
 def test_multivalley():
+    """Si/Ge ellipsoidal valleys: E_F equals the single-sphere value for the DOS mass."""
     # Si: 6 X valleys, m_l = 0.98, m_t = 0.19 -> m_de = 6^{2/3}(m_l m_t^2)^{1/3}
     Mc, ml, mt = 6, 0.98 * f.M_E, 0.19 * f.M_E
     m_de = Mc ** (2 / 3) * (ml * mt**2) ** (1 / 3)
@@ -130,6 +139,7 @@ def test_multivalley():
 # ---- 9. unphysical input is rejected, not turned into nan / inf ----
 
 def test_guards():
+    """Invalid inputs (T=0, n<=0) raise ValueError rather than returning garbage."""
     bad = [lambda: f.fermi_dirac(0.0, 0.0, 0.0), lambda: f.solve_mu(1e20, 0.0, M),
            lambda: f.solve_mu(0.0, 300.0, M), lambda: f.boltzmann_mu(0.0, 300.0, M),
            lambda: f.sommerfeld_mu(0.0, 300.0, M)]

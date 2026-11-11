@@ -9,7 +9,7 @@ ATOM_COLORS = [style.ACOUSTIC, style.OPTICAL[0], style.OPTICAL[1], style.OPTICAL
 
 
 def radius(m, mref=1.0):
-    """Circle radius for a mass; shared so springs can stop at the atom edge."""
+    """Circle radius for a mass (area tracks mass); shared so springs can stop at the atom edge."""
     return 0.085 * (m / mref) ** (1 / 3)
 
 
@@ -131,6 +131,9 @@ def panel_two(ax):
 
 
 def make(path):
+    """Assemble panels (a) and (b) and save the schematic to `path`.
+
+    Role: entry point called by make_figures.fig_schematic."""
     fig, axes = plt.subplots(2, 1, figsize=(8.8, 4.0),
                              gridspec_kw=dict(height_ratios=[1.0, 1.05], hspace=0.30))
     panel_general(axes[0])
