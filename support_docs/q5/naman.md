@@ -1,121 +1,151 @@
-# Naman: Q5 Numerical Core (`fermi.py`)
+# Naman: Q5 Report Generation (`report/report.tex`)
 
-**Your part:** `fermi.py` and the report §Numerical method.
+**Your part:** `question_5/report/report.tex`: how the Q5 report is put together and built, its
+section structure, references, and the conclusions and limitations it states.
 
-Back to [README](../README.md).
+Back to [README](../README.md) · read [THEORY.md](THEORY.md): the report's Theory section is
+that material, and you are the person who can walk an examiner through the whole document.
+
+Because the report touches every file, you need the **big picture of Q5** best of anyone in the
+group. Skim the whole PDF once, and know where each thing lives.
 
 ## 1. 30-second version
 
-> `fermi.py` evaluates the dimensionless Fermi–Dirac integral `F_{1/2}(η)` by quadrature, wraps
-> it in a function giving carrier density `n(μ,T)`, and finds the chemical potential for a
-> target `n` with Brent's root finder, inside a bracket built from the two closed-form limits.
-> It also provides the DOS, an overflow-safe `f(E)`, and the degenerate-gas quantities,
-> including per-valley values for multi-valley materials.
+> The report is a RevTeX paper in Physical Review B style. It explains Fermi–Dirac statistics and
+> derives the density of states, then sets up the carrier-density integral that fixes μ. It
+> describes the numerical solution and validates it against the Boltzmann, degenerate and
+> Sommerfeld limits. It then shows the interface and the results: the three doping regimes,
+> μ against T and against n, and three materials. Results figures come from `make_figures.py`,
+> and the code appendix is pulled from the `.py` files with `\lstinputlisting`. One command,
+> `latexmk -pdf report.tex`, builds the 18-page PDF.
 
-## 2. File map
-
-| Function | Job |
-|---|---|
-| constants | `HBAR, M_E, K_B, EV` in SI |
-| `_check_positive(**kw)` | Raises `ValueError` for T, n or m* that is ≤ 0 or not finite |
-| `fermi_dirac(E, mu, T)` | `f(E)` via `scipy.special.expit(-(E−μ)/kT)`: no overflow |
-| `dos(E, m_eff, Ec)` | `D(E)`, exactly zero for `E ≤ Ec` |
-| `n_c(m_eff, T)` | `N_c = 2(m*kT/2πħ²)^{3/2}` |
-| `_quad(fn, a, b)` | `scipy.integrate.quad` with a purely relative tolerance (1e-12); raises if it isn't met |
-| `fermi_integral_half(eta)` | `F_{1/2}(η)`: factors out `e^η` for η<0; splits at x=η for η≥0 (see §4) |
-| `carrier_density(mu, T, m_eff, Ec)` | `n = N_c (2/√π) F_{1/2}(η)` |
-| `solve_mu(n, T, m_eff, Ec)` | bracket from the limits + `brentq` on η, returns `μ = E_c + η kT` |
-| `boltzmann_mu` | closed-form non-degenerate μ, for validation |
-| `fermi_quantities(n, m_eff, valleys=None)` | `E_F, k_F, v_F, T_F`; with `valleys=(M_c, m_l, m_t)` also per-valley `k_F_l, k_F_t, v_F_l, v_F_t` |
-| `degeneracy(mu, T, Ec)` | `η = (μ−E_c)/kT` |
-| `sommerfeld_mu` | `E_F[1 − (π²/12)(kT/E_F)²]`, for validation |
-
-## 3. The method, four steps (report §Numerical method)
-
-1. Evaluate `F_{1/2}(η)` by quadrature with a relative tolerance of 1e-12; upper limit
-   `max(η,0)+60` (the integrand decays like `e^{−(x−η)}`, so +60 is far past negligible).
-2. Solve `n(η) = n_target` for η with Brent's method.
-3. **Bracket** between the two closed forms: the root always lies between `ln(n/N_c)` (Boltzmann)
-   and `E_F/kT` (T=0 sphere). A fixed bracket fails at low T, where η can be 1e4 or more.
-4. Return `μ = E_c + η k_BT`.
-
-## 4. Design decisions to be able to defend
-
-- **Solve for η, not μ.** η is dimensionless and O(1–10), so the root finder doesn't deal with
-  joules (~1e-19). Units sit in one place (`N_c`).
-- **Cutoff scales with η.** A fixed energy cutoff would silently lose carriers in the degenerate
-  case, where the integrand extends far above the band edge.
-- **Relative tolerance only (`epsabs=0`).** `quad`'s default absolute tolerance (~1.5e-8)
-  becomes a ~1e-3 *relative* error once `F_{1/2}` is tiny (η ≲ −20). Using only a relative
-  tolerance, and checking the returned error estimate, removes that silent floor.
-- **Factor out `e^η` for η < 0.** `√x·expit(η−x) = e^η · √x e^{−x}/(1+e^{η−x})`, so quad
-  integrates an O(1) function however negative η is.
-- **Split at x = η for η ≥ 0.** The occupation steps from 1 to 0 at x = η. Splitting there lets
-  quad resolve the step even at η ~ 1e5. Below `η − 60` the occupation is 1 to within `e^{−60}`,
-  so that piece is just `(2/3)x^{3/2}`.
-- **`expit` instead of `1/(exp(x)+1)`.** For large positive `x`, `exp(x)` overflows to `inf`.
-  `expit(x)=1/(1+e^{−x})` is stable for all x.
-- **`solve_mu` bracket logic.** Two facts bound the root. Boltzmann *overestimates* n at a given
-  η: dropping the +1 makes every state look fuller, `e^{−(x−η)} > 1/(1+e^{x−η})`. So the
-  Boltzmann η for a given n is too low, and the true η is **above** `η_B = ln(n/N_c)`. The T=0 sphere
-  *underestimates* n (`F_{1/2}(η) > (2/3)η^{3/2}`), so the true η is **below** `η_d = E_F/kT`.
-  The bracket is `[η_B − 1, max(η_d, η_B) + 1]`, widened only if round-off makes it touch the
-  root; residuals are stored, not recomputed. Raises `RuntimeError` if it still can't bracket.
-- **Relative residual.** The function handed to `brentq` is `n(η)/n_target − 1`, so it is O(1)
-  whatever n is.
-- **`brentq` tolerances:** `xtol=1e-13`, `rtol=4·eps`. Brent combines bisection (guaranteed)
-  with secant/inverse-quadratic steps (fast).
-- **Multi-valley (Si, Ge).** `m_de = M_c^{2/3}(m_l m_t²)^{1/3}` gives the right `N_c` and `E_F`, but
-  each valley holds only `n/M_c`, so the mean `k_F` is `(3π²n/M_c)^{1/3}` (smaller by `M_c^{1/3}`,
-  1.82 for Si) and `v_F` differs along the long and short valley axes: `v_i = ħk_i/m_i`.
-- **Input guards.** T = 0, n = 0 or m* = 0 raise `ValueError` instead of producing `nan`.
-- **DOS zero in the gap.** `dos` returns 0 where `E ≤ Ec` using a mask.
-- **Units.** Everything is SI internally (joules, m⁻³). The UI converts to eV and cm⁻³
-  (`1 cm⁻³ = 1e6 m⁻³`).
-
-## 5. Maths behind `carrier_density`
-
-`n = ∫ D f dE`. With `x=(E−E_c)/kT`: `D dE = (1/2π²)(2m*/ħ²)^{3/2}(kT)^{3/2}√x dx`, and pulling
-constants out yields `N_c (2/√π) F_{1/2}(η)`. Check: for η→−∞, `F_{1/2} → (√π/2) e^η`, so
-`n → N_c e^η`: the Boltzmann result.
-
-## 6. Likely questions
-
-- **Why Brent's method?** Robust (bracketed, always converges) and fast (superlinear); we don't need
-  derivatives.
-- **What if it fails to converge?** Bracketing error is raised explicitly rather than returning a
-  wrong number.
-- **Why does low T make bracketing hard?** `n(η)` becomes nearly a step (it jumps when μ crosses
-  E_c), so any fixed starting interval may not contain the sign change.
-- **What does `quad` do?** Adaptive Gauss–Kronrod quadrature; here `limit=400` subdivisions,
-  `epsabs=0`, `epsrel=1e-12`.
-- **How accurate is `F_{1/2}`?** ~1e-15 relative against the exact series for η between −40 and
-  −0.5, and against the asymptotic series for η up to 1e7 (Nithin's test 7).
-- **Why not use an approximation for F_{1/2}?** The point is to span both regimes with one code
-  path; approximations (like Blakemore's, cited in the report) are only accurate in limits.
-- **How is accuracy checked?** Nine validation checks (Nithin's part), including a round trip
-  with error 7e-15 and direct checks of `F_{1/2}`.
-- **Why is `T_F` computed even when non-degenerate?** The question asks for it; the app flags it as
-  formal via η.
-- **Complexity?** Each `solve_mu` is ~10–30 `quad` calls. The app's sweeps (90 T points, 81 n
-  points) take well under a second and are cached, so they are only recomputed when an input
-  that affects them changes.
-
-## 7. Run it yourself
+## 2. How the report is built
 
 ```bash
-cd question_5
-../.venv/bin/python -c "
-import fermi as f
-M=0.067*f.M_E; n=1e17*1e6
-mu=f.solve_mu(n,300,M,1.42*f.EV)
-print((mu-1.42*f.EV)/f.EV*1000,'meV  eta=',f.degeneracy(mu,300,1.42*f.EV))
-print(f.fermi_quantities(n,M))
-"
+cd question_5/report
+latexmk -pdf report.tex        # runs pdflatex (and BibTeX) as many times as needed
 ```
-Expect μ−E_c ≈ −35.9 meV and η ≈ −1.39, matching the report's GaAs materials table.
-Try `n=1e19` and `T=1` to watch μ → E_F. For Si, compare
-`f.fermi_quantities(1e26, 1.08*f.M_E)` with
-`f.fermi_quantities(1e26, 1.08*f.M_E, valleys=(6, 0.98*f.M_E, 0.19*f.M_E))`: `E_F` agrees
-(72.7 vs 72.5 meV; the valley masses give m_de = 1.084, not exactly 1.08), but `k_F` drops from
-1.44 to 0.79 nm⁻¹.
+
+| Piece | How it works |
+|---|---|
+| Document class | `revtex4-2` with `aps, prb, reprint, nofootinbib`: two-column Phys. Rev. B layout |
+| Packages | `amsmath, amssymb` (maths), `graphicx` (figures), `booktabs` (tables), `listings` + `xcolor` (code), `hyperref` (links) |
+| Figures | `\graphicspath{{../figures/}}`, so `\includegraphics{mu_vs_T.png}` finds `question_5/figures/mu_vs_T.png` |
+| Appendix | `\lstinputlisting{../fermi.py}`, `../test_fermi.py`, `../make_figures.py`, `../app.py`: **the real files**, included at build time |
+| References | An inline `thebibliography` block at the end. `reportNotes.bib` only holds RevTeX control entries |
+| Build outputs | `.aux, .bbl, .blg, .fls, .fdb_latexmk, .log, .out` are generated; `report.pdf` is the result (18 pages) |
+
+**The `\lstset` block** styles all code (blue keywords, green strings, grey italic comments,
+line numbers). Its `literate=` list maps Unicode characters in the Python comments (ω, π, μ,
+η, ħ, Γ, ⁻, ³, …) to LaTeX maths. Q5's code uses more of these than Q3's (`ħ`, `Γ`, `η`), which
+is why the list is longer. Without it, `listings` can't print them.
+
+**`\onecolumngrid` / `\twocolumngrid`** switch the appendix to one column so code lines fit.
+
+**Authors:** all ten group members with roll numbers, same list as the Q3 report.
+
+## 3. Section map: what is where
+
+| § | Section | Content | Figures/tables |
+|---|---|---|---|
+| I | Introduction | Fermions, degenerate vs classical gas, why doping moves a semiconductor between them | — |
+| II | Theory | FD statistics; DOS from k-space counting; `n = ∫Df dE` and `F_{1/2}(η)`; the two limits; **multi-valley materials**; the two points of care (E_F ≠ μ(T); k_F, v_F, T_F need degeneracy) | `kspace_dos.png` |
+| III | Numerical method | Quadrature of `F_{1/2}`, bracket from the two limits, Brent; **Validation** subsection (9 checks) | validation table |
+| IV | The interactive interface | Inputs, outputs, regime banner (η>2, η<−3), the validity warnings (valence band, freeze-out, heavy doping) | `ui_gaas_top.png` |
+| V | Results | Bands and occupation; three regimes; μ vs T; μ vs n; materials | `bands.png`, `occupation.png`, `dos_occupied.png`, `mu_vs_T.png`, `mu_vs_n.png`; regimes and materials tables |
+| VI | Conclusions | Five results + limitations | — |
+| — | Reproducing this work | The commands | — |
+| App. A | Complete source code | `fermi.py`, `test_fermi.py`, `make_figures.py`, `app.py` | — |
+| — | References | 7 entries | — |
+
+How the report maps onto the assignment's eight requirements: (1) explain FD statistics, E_F,
+DOS → §II; (2) interface → §IV; (3) E_F, k_F, v_F, T_F with equations → §II eqs + §IV;
+(4) bands, Fermi level, f(E) → `bands.png`; (5) D(E) and D(E)f(E) → `dos_occupied.png`;
+(6) E_F vs T → μ vs T subsection; (7) E_F vs n → μ vs n subsection; (8) demonstration, code,
+interpretation, references → §V, Appendix, references.
+
+## 4. Conclusions (§VI): five bullets to know
+
+1. The classical/degenerate boundary is near `n ~ N_c` (4.35e17 cm⁻³ for GaAs at 300 K);
+   equivalently, degeneracy needs `T ≪ T_F`.
+2. μ falls with T because `D(E) ∝ √(E−E_c)` offers more states above μ than below.
+3. In the degenerate regime that fall is the `T²` Sommerfeld correction.
+4. μ rises logarithmically with n while non-degenerate, and as `n^{2/3}` once degenerate.
+5. Effective mass, not band gap, controls how readily a material becomes degenerate.
+
+Accuracy claims in the Conclusions: the Boltzmann limit is recovered *including* the leading FD
+correction, to 3e-5; the degenerate limit reaches E_F to 1e-7, which is the size of the physical
+Sommerfeld offset at 1 K.
+
+**Limitations stated (know these, they are the most likely hard questions):**
+- Parabolic valleys. DOS masses make N_c and E_F right; k_F and v_F are given per valley for
+  Si/Ge.
+- GaAs L and X valleys sit 0.29 and 0.48 eV above Γ, which caps the doping range at 1e19.
+- Band non-parabolicity is ignored.
+- There is no valence band and no donor statistics, and n is an input rather than solved
+  for. Two consequences, both flagged by the app:
+  - μ can fall below E_v at low n and high T.
+  - There is no freeze-out as T→0. For Si at 1e16 and 5 K the model puts μ 0.75 meV below E_c;
+    reality is about 20 meV.
+- E_g is fixed at its 300 K value, so Varshni narrowing (~0.24 eV for Si between 300 and
+  1000 K) is ignored.
+- The fix is to solve charge neutrality, `n − p = N_D⁺`, with a valence band and a donor level.
+
+## 5. References (the `thebibliography` block)
+
+| Key | Source | Used for |
+|---|---|---|
+| kittel | Kittel, *Intro to Solid State Physics*, 8th ed., ch. 6 | Free-electron Fermi gas |
+| ashcroft | Ashcroft & Mermin, ch. 2 and ch. 28 | Sommerfeld theory, semiconductors |
+| sze | Sze & Ng, *Physics of Semiconductor Devices*, ch. 1 | Carrier statistics |
+| blakemore | Blakemore, *Solid-State Electronics* 25, 1067 (1982) | Fermi–Dirac integral approximations |
+| scipy | Virtanen et al., *Nature Methods* 17, 261 (2020) | `quad`, `brentq` |
+| numpy | Harris et al., *Nature* 585, 357 (2020) | Arrays |
+| streamlit | Streamlit docs | Interface |
+
+## 6. The project in one table
+
+| Piece | File | Owner |
+|---|---|---|
+| Physics core | `fermi.py` | Kshiteesh |
+| Validation (9 checks) | `test_fermi.py` | Nithin |
+| Results and figures | `make_figures.py` | Guhan |
+| Interface and screenshots | `app.py`, `_shots.py` | Praveen |
+| Report | `report/report.tex` | You |
+
+## 7. Honest flags about the current report
+
+- **Screenshots predate the review fixes.** The banner wording and the Si/Ge k_F/v_F tiles look
+  slightly different in the live app; the GaAs numbers are the same.
+- **`kspace_dos.png` is not generated by `make_figures.py`.** It's a separately made diagram.
+- **`ui_gaas_top.png` is a manual crop** of the `_shots.py` screenshot.
+- **The validation table lists 9 rows for 9 checks, but not one-to-one.** `F_{1/2}` gets two rows,
+  and the input-guard check is only mentioned in the caption.
+
+## 8. Likely questions
+
+- **Why RevTeX?** The standard APS physics-paper format.
+- **How do you make sure the code in the report is the code you ran?** `\lstinputlisting` reads
+  the `.py` files at build time.
+- **The question says "Fermi energy vs temperature". Why does the report plot μ?** E_F = μ(T=0)
+  depends only on n. The thing that changes with T is μ(T). The report says this explicitly
+  (§II, "Two points of care").
+- **Why does the doping range stop at 1e19?** Above that, E_F reaches the GaAs L/X valleys and the
+  single-valley model stops describing the material.
+- **What's the main result?** The classical–degenerate crossover sits at n ~ N_c, and the
+  effective mass, not the gap, sets it.
+- **Main limitation?** Conduction band only, with n fixed: no holes, no donor levels.
+- **How reproducible is it?** `test_fermi.py`, `make_figures.py`, `streamlit run app.py`,
+  `latexmk -pdf report.tex`; pinned `requirements.txt`.
+
+## 9. Run it yourself
+
+```bash
+cd question_5 && ../.venv/bin/python make_figures.py   # fresh figures
+cd report && latexmk -pdf report.tex                   # rebuild the PDF (18 pages)
+latexmk -c                                             # clean auxiliary files, keep the PDF
+```
+Open the PDF next to this guide and find each item in the section map. Read the Q3 report's
+Introduction and Conclusions too, so you can say how the questions connect: both end in a density
+of states, and both gaps come from a basis splitting one band (mass contrast in Q3, the periodic
+potential in Q5).

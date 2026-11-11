@@ -1,8 +1,8 @@
 # Nithin: Q5 Validation (`test_fermi.py`)
 
-**Your part:** `test_fermi.py` and the report §Validation.
+**Your part:** `question_5/test_fermi.py` (the report's Validation section describes it; Naman owns the report itself).
 
-Back to [README](../README.md).
+Back to [README](../README.md) · shared physics: [THEORY.md](THEORY.md).
 
 ## 1. 30-second version
 

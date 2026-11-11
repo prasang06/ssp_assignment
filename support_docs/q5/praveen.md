@@ -1,117 +1,143 @@
-# Praveen: Q5 Results and Figures
+# Praveen: Q5 Interface (`app.py`, `_shots.py`)
 
-**Your part:** `make_figures.py`, and report §Results: the three regimes, μ vs T, μ vs n,
-materials comparison.
+**Your part:** `question_5/app.py` and `question_5/_shots.py`: the interactive interface, what
+each control and output means, the warnings it shows, and how the report screenshots were taken.
 
-Back to [README](../README.md).
+Back to [README](../README.md) · read [THEORY.md](THEORY.md) for the physics the app shows.
 
 ## 1. 30-second version
 
-> All results come from one numerical solver. At fixed T=300 K, GaAs goes from classical
-> (n=1e16, μ below the band edge) to degenerate (n=1e19, μ well above it), with n≈N_c=4.35e17 as
-> the crossover. μ falls with T because D(E) grows with energy; in the degenerate case the fall is
-> the small T² Sommerfeld correction. μ rises logarithmically with n, then as n^{2/3}. Effective
-> mass, not band gap, decides how easily a material turns degenerate.
+> The Streamlit app takes the band gap, effective mass, temperature, carrier concentration and an
+> energy range, with presets for GaAs, Si and Ge. It solves for μ with the full Fermi–Dirac
+> integral and shows μ−E_c, E_F, k_F, v_F and T_F with a regime banner based on η. It warns when
+> the inputs leave the model's range. Its plots are the band diagram with f(E), D(E) with its
+> occupied part, and μ against T and against n. All the physics comes from `fermi.py`; the app
+> reads inputs, calls it and draws the results. Nothing is approximated for speed; repeated
+> inputs are cached.
 
-## 2. What `make_figures.py` generates
+## 2. Controls
 
-Reference material: GaAs-like (`E_g = 1.42 eV`, `m* = 0.067 mₑ`), reference `n = 1e17 cm⁻³`,
-`T = 300 K`. Run `python make_figures.py`; it regenerates everything in `figures/`.
+| Control | Meaning |
+|---|---|
+| Preset | GaAs (1.42 eV, 0.067), Si (1.12, 1.08), Ge (0.66, 0.56). Masses are density-of-states masses |
+| Band gap `E_g`, mass `m*/mₑ` | Editable; keyed on the preset (`key=f"eg_{preset}"`) so changing preset updates them |
+| `T` slider | 1–1000 K |
+| `log₁₀ n` slider | 12–20 (cm⁻³), steps of 0.1; above 19 is flagged as outside the model |
+| Energy range | How far above/below the gap to draw |
 
-| Function | Output | Shows |
-|---|---|---|
-| `fig_bands` | `bands.png` | Band edges, μ, and `f(E)` on a shared energy axis; `f(μ)=1/2` |
-| `fig_occupation` | `occupation.png` | `f(E)` smearing with T = 10, 100, 300, 600 K (μ held fixed) |
-| `fig_dos` | `dos_occupied.png` | `D(E)` and `D(E)f(E)`, three regimes, log y-axis |
-| `fig_mu_vs_T` | `mu_vs_T.png` | (a) μ(T) at three n; (b) degenerate case vs Sommerfeld |
-| `fig_mu_vs_n` | `mu_vs_n.png` | μ−E_c vs n at three temperatures, 1e13 to 1e19 (the model's limit) |
+Material data lives in one dict, `MATS`: for each preset, E_g, the DOS mass, the valley structure
+`(M_c, m_l, m_t)` (Si: 6, 0.98, 0.19; Ge: 4, 1.64, 0.082; GaAs: none), the donor ionisation
+energy `E_d`, and an approximate Mott density.
 
-## 3. Results to know cold
+## 3. Outputs
 
-### Three regimes (GaAs, 300 K)
+- **Five metrics:** `μ−E_c` (meV), `E_F` above E_c (meV), `k_F` (nm⁻¹), `v_F` (10⁵ m/s), `T_F` (K).
+  For the **Si and Ge presets** `k_F` is per valley and `v_F` is two numbers, along the long and
+  short valley axes (`l / t`), because those Fermi surfaces are ellipsoids. If you edit the mass
+  away from the preset value, it falls back to one isotropic sphere and says so.
+- **Regime banner** from `η = (μ−E_c)/k_BT`:
+  - `η > 2`: **degenerate** (green), so k_F, v_F, T_F describe real carriers.
+  - `η < −3`: **non-degenerate** (amber), Boltzmann within 2 %; k_F, v_F, T_F are formal.
+    (At η = −2 Boltzmann is still 4.7 % off, which is why the threshold is −3.)
+  - otherwise **intermediate**: the full integral is needed.
+- **Validity warnings.** n is an input and the model has no holes or donor levels, so some inputs
+  describe states no real crystal is in. The app says so:
+  - **Red error** if μ is within 3k_BT of E_v or below it. Example: Si, 1000 K, 1e12 puts μ
+    0.51 eV *below* E_v. In a real crystal holes take over and μ is pinned near mid-gap.
+  - A milder warning if μ is below mid-gap.
+  - **Freeze-out** warning for the presets when fewer than 90 % of donors would be ionised,
+    from `N_D⁺/N_D = 1/[1 + 2(n/N_c)e^{E_d/kT}]` (e.g. Si at 1e16 below about 135 K).
+  - **Heavy doping** above 1e19, and for GaAs once μ comes within 3k_BT of the L valley.
+- **Left plot:** band edges and μ, next to `f(E)` on the same energy axis.
+- **Right plot:** `D(E)` and `D(E)f(E)` on a log axis; the area under D·f is n.
+- **Two sweeps:**
+  - μ−E_c against T: the marker is the current T, the dotted line is E_F, and the caption notes
+    that n is held fixed, so there is no freeze-out.
+  - μ−E_c against n: the marker is the current n, and the region above 1e19 is shaded as
+    beyond the model.
 
-| n (cm⁻³) | μ−E_c (meV) | η | E_F (meV) | T_F (K) | Regime |
-|---|---|---|---|---|---|
-| 1e16 | −97.3 | −3.77 | 2.5 | 29 | classical (μ below edge) |
-| 1e18 | +41.9 | 1.62 | 54.4 | 632 | intermediate (full integral needed) |
-| 1e19 | +250.4 | 9.69 | 252.6 | 2931 | degenerate (μ ≈ E_F to within 1%) |
+![GaAs UI](../../question_5/figures/ui_gaas_top.png)
 
-![bands](../../question_5/figures/bands.png)
-*n=1e17: μ sits below E_c; f passes through ½ exactly at μ.*
+*The report run: GaAs, n=1e17, 300 K, η = −1.39 (intermediate: neither limit applies cleanly).
+Screenshots predate the review fixes, so the banner wording and the Si/Ge k_F/v_F tiles look a
+bit different in the live app; the GaAs numbers are the same.*
 
-![occupation](../../question_5/figures/occupation.png)
-*Step softens over ~k_BT: nearly sharp at 10 K, smeared over >0.2 eV at 600 K. μ is held fixed
-here on purpose to show only thermal broadening.*
+## 4. Software flow (be able to say it)
 
-![dos occupied](../../question_5/figures/dos_occupied.png)
-*Log axis needed: at 1e16 the occupied DOS is ~4 orders below D(E). Non-degenerate: D·f is a
-straight line down (Boltzmann tail). Degenerate: D·f follows D up to μ, then drops within a few
-k_BT. The area under D·f is n.*
+```
+n = 10**log_n * 1e6            # cm⁻³ → m⁻³
+mu  = mu_of(n, T, m_eff, Ec)   # cached wrapper around f.solve_mu
+eta = f.degeneracy(mu, T, Ec)
+q   = f.fermi_quantities(n, m_eff, valleys=valleys)
+→ metrics, banner, validity warnings
+→ plots with f.fermi_dirac and f.dos
+→ sweeps: mu_sweep_T (90 temperatures), mu_sweep_n (81 densities), both cached
+```
 
-### μ vs T
+Design points to be able to explain:
+- **Thin wrapper.** Every number comes from `fermi.py`.
+- **`st.cache_data`** on `mu_of`, `mu_sweep_T` and `mu_sweep_n`. A sweep is 80–90 root-finds;
+  caching means moving the energy-range slider doesn't redo them. This is caching, not
+  approximation.
+- **Dense energy grid near μ** (`energy_grid`): a uniform grid plus 600 points within 12k_BT of
+  μ. At 1 K, k_BT is 86 μeV, far smaller than the uniform spacing, so without the patch the Fermi
+  step would be drawn as a slope.
+- **Valleys only for an unedited preset.** The anisotropic masses belong to the preset's DOS mass;
+  if you change the mass they'd no longer be consistent, so the app drops them.
+- **Units:** SI inside `fermi.py`; the app converts to eV (`ev()`), meV, nm⁻¹ and cm⁻³ for display.
+- **`matplotlib.figure.Figure`, not pyplot**, so nothing leaks between reruns; `sys.path` is
+  extended only once.
+- The app also runs as a page of the combined `streamlit_app.py` at the repo root, which is why
+  `st.set_page_config` is wrapped in `try/except`.
 
-![mu vs T](../../question_5/figures/mu_vs_T.png)
-- μ **falls** with T: D(E) ∝ √(E−E_c) puts more states above μ than below within the thermal window,
-  so carriers promoted upward force μ down to keep n fixed. At low doping μ drops below E_c.
-- Degenerate case is much flatter: `μ ≈ E_F[1 − (π²/12)(kT/E_F)²]`. Numerics follow this up to
-  ~300 K, 0.5% off at 700 K where `kT/E_F ≈ 0.24`, the asymptotic series' expected failure.
+## 5. `_shots.py`: the report screenshots
 
-### μ vs n
+- Uses **Playwright** to open the running app in headless Chromium (1500 × 2900 px, 2× scale).
+- For each preset (GaAs, Si, Ge) it opens the first combobox in the sidebar, selects the preset,
+  waits for Streamlit to finish rerunning (`settle`: network idle plus a few seconds), and saves
+  a full-page screenshot as `figures/ui_gaas.png`, `ui_si.png`, `ui_ge.png`.
+- `trim()` crops the blank area below the content, measuring only the main panel, because the
+  sidebar is a full-height grey block that would defeat the crop.
+- `ui_gaas_top.png` in the report is a top-of-page crop made separately; no script in the repo
+  makes it.
 
-![mu vs n](../../question_5/figures/mu_vs_n.png)
-- Non-degenerate: `μ = E_c + kT ln(n/N_c)`, logarithmic in n.
-- Crosses E_c near `n ≈ N_c = 4.35e17 cm⁻³` (GaAs, 300 K).
-- Degenerate: `μ ∝ n^{2/3}` (from E_F), much steeper.
-- Higher T shifts the crossing to higher n because `N_c ∝ T^{3/2}`.
+## 6. Likely questions
 
-### Different materials (n=1e17, 300 K)
+- **What do the inputs do?** T and n change μ; m* sets N_c and the DOS; E_g only shifts E_c (it
+  doesn't change μ−E_c).
+- **Why does the banner use η?** η compares μ−E_c with k_BT: that is the actual criterion for
+  degeneracy.
+- **Why show k_F, v_F, T_F in the non-degenerate regime?** The question asks for them. We show
+  them, flagged as formal.
+- **Is anything approximated?** No: the full integral is solved for every new input. Repeated
+  inputs are cached, not approximated.
+- **Why the red error?** The inputs put μ at or below the valence band, which the model can't
+  describe because it has no holes. The app says so rather than plotting nonsense.
+- **Why two numbers for v_F in Si?** Each Si valley is an ellipsoid (m_l = 0.98, m_t = 0.19), so
+  the Fermi velocity differs along the long and short axes.
+- **Why do the Si/Ge masses differ from textbook "electron masses"?** They're density-of-states
+  masses (valley degeneracy included); conductivity masses are smaller.
+- **Why does μ−E_c not depend on E_g?** E_c is just the reference energy; only m*, n and T
+  matter for μ−E_c.
+- **How do you know the app is right?** `fermi.py` passes nine checks in `test_fermi.py`
+  (Nithin), and the app's GaAs numbers match the report's tables.
+- **How were the screenshots made?** `_shots.py` drives a headless browser with Playwright.
 
-| Material | E_g (eV) | m*/mₑ | μ−E_c (meV) | η |
-|---|---|---|---|---|
-| GaAs | 1.42 | 0.067 | −35.9 | −1.39 |
-| Si | 1.12 | 1.080 | −145.8 | −5.64 |
-| Ge | 0.66 | 0.560 | −120.3 | −4.65 |
-
-Ordering follows m*, via `N_c ∝ (m*)^{3/2}`, not E_g (the gap only sets where E_c is). Light mass
-→ few states → carriers fill higher → closer to degenerate. Masses are *density-of-states* masses
-(valley degeneracy already included: Si 6 valleys, Ge 4), so don't multiply N_c by the
-degeneracy again.
-
-### Why doping stops at 1e19
-
-At 1e20, E_F ≈ 1.17 eV above E_c, far above GaAs's L and X valleys (0.29 and 0.48 eV), so the
-single-parabolic-valley model no longer describes the band structure. The `mu_vs_n` figure
-therefore stops at 1e19 (it used to run to 1e21), and the app flags anything above 1e19. Even
-1e19 is the edge: μ is 250 meV above E_c there, within 40 meV of the L valley.
-
-## 4. Likely questions
-
-- **Why a log axis in the DOS figure?** D·f at 1e16 is ~1e-7 of D; on a linear axis it would look
-  like zero.
-- **Why does μ fall with T?** (See above: D(E) grows with E.) Not "electrons go to higher
-  energy" alone.
-- **Why is the occupation figure at fixed μ?** To isolate thermal broadening; the true μ(T) at
-  fixed n also moves.
-- **What is the clipping at 1e10 in the DOS plot?** A floor on the log axis for plotting only; the
-  physics decays smoothly to zero.
-- **Why do Si and Ge look more classical than GaAs at the same n?** Larger m* → larger N_c.
-- **What happens to μ as T→0?** In the model, μ → E_c + E_F for any n (shown in the T-sweep
-  tests). In a real lightly doped crystal the donors recapture their electrons (freeze-out) and
-  μ stays between the donor level and E_c. The model holds n fixed, so it can't show that; the
-  app warns when it would matter.
-- **What happens at very low n and high T?** The fixed-n model can push μ below the valence band
-  (Si, 1000 K, 1e12: 0.51 eV below E_v). Physically the intrinsic density is then far above n
-  and holes take over; the model has no holes, so the app shows an error instead.
-- **What's the area under D·f?** The carrier density n.
-- **Which result would change for p-type?** Would need the valence-band DOS and hole density, which
-  are outside this model.
-
-## 5. Run it yourself
+## 7. Run it yourself
 
 ```bash
 cd question_5
-../.venv/bin/python make_figures.py          # regenerates all PNGs
-../.venv/bin/streamlit run app.py            # pick GaAs, sweep log10 n from 16 to 19
+../.venv/bin/streamlit run app.py
 ```
-Move the `log10 n` slider and watch the banner flip classical → intermediate → degenerate and the
-`μ vs n` marker travel along the curve.
+Demo route: GaAs, 300 K, log n = 16 → 17 → 19, and watch the banner go non-degenerate →
+intermediate → degenerate. Switch to Si and note μ−E_c drops at the same n. Set T=1 and check
+μ ≈ E_F. Then trigger each warning:
+- valence band: Si, 1000 K, log n = 12;
+- freeze-out: Si, 77 K, log n = 16;
+- heavy doping: any preset at log n = 19.5.
+
+Screenshots (needs `pip install playwright && playwright install chromium`):
+```bash
+../.venv/bin/streamlit run app.py --server.port 8520 &
+../.venv/bin/python _shots.py
+```

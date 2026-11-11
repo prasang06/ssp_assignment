@@ -1,7 +1,7 @@
 # Support docs: defend-your-part guides
 
 One markdown per person, in `q3/` (phonon dispersion) and `q5/` (Fermi–Dirac statistics).
-Each guide has: what your part is, the concepts you must be able to explain, a code
+Each guide has: what your file is, the concepts you must be able to explain, a code
 walk-through, figures to know, likely questions with short answers, and a "run it yourself"
 checklist.
 
@@ -10,13 +10,19 @@ previewer (VS Code, GitHub) from inside the repo.
 
 ## The split
 
-| Q3: phonon dispersion | | Q5: Fermi–Dirac statistics | |
+Each group stays on its own question, and everyone owns at least one file to explain.
+
+| Q3: phonon dispersion | File(s) | Q5: Fermi–Dirac statistics | File(s) |
 |---|---|---|---|
-| [Prasang](q3/prasang.md) | Interface and Results | [Guhan](q5/guhan.md) | Theory |
-| [Haresh](q3/haresh.md) | Theory | [Naman](q5/naman.md) | Numerical core (`fermi.py`) |
-| [Abhilash](q3/abhilash.md) | Physics core (`phonon.py`) | [Nithin](q5/nithin.md) | Validation (`test_fermi.py`) |
-| [Kumud](q3/kumud.md) | Validation (`test_phonon.py`) | [Praveen](q5/praveen.md) | Results and figures |
-| [Abish](q3/abish.md) | Conclusions, references, assembly | [Kshiteesh](q5/kshiteesh.md) | Interface section and assembly |
+| [Prasang](q3/prasang.md) | `app.py`, `_shots.py`, plus shared `streamlit_app.py`, `home.py`, `common/style.py` | [Naman](q5/naman.md) | `report/report.tex` (report generation) |
+| [Haresh](q3/haresh.md) | `make_figures.py`, `_schematic.py` | [Guhan](q5/guhan.md) | `make_figures.py` |
+| [Abhilash](q3/abhilash.md) | `report/report.tex` (report generation) | [Nithin](q5/nithin.md) | `test_fermi.py` |
+| [Kumud](q3/kumud.md) | `test_phonon.py` | [Praveen](q5/praveen.md) | `app.py`, `_shots.py` |
+| [Abish](q3/abish.md) | `phonon.py` | [Kshiteesh](q5/kshiteesh.md) | `fermi.py` |
+
+**Everyone also reads their group's theory guide:** [q3/THEORY.md](q3/THEORY.md) or
+[q5/THEORY.md](q5/THEORY.md). Nobody owns theory as a file, but every file implements part of
+it, and the examiner can ask anyone to derive the basics.
 
 ## Ground rules from the class briefing
 

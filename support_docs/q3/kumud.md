@@ -1,8 +1,8 @@
 # Kumud: Q3 Validation (`test_phonon.py`)
 
-**Your part:** `test_phonon.py` and the report §Validation.
+**Your part:** `question_3/test_phonon.py` (the report's Validation section describes it; Abhilash owns the report itself).
 
-Back to [README](../README.md).
+Back to [README](../README.md) · shared physics: [THEORY.md](THEORY.md).
 
 ## 1. 30-second version
 
