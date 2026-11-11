@@ -17,6 +17,8 @@ EPS = np.finfo(float).eps
 # ---- input handling ----
 
 def _masses(m):
+    """Validate and normalise the mass list. Every public function in this file
+    runs its input through here, so bad masses fail early with a clear message."""
     m = np.atleast_1d(np.asarray(m, dtype=float))
     if m.ndim != 1 or m.size == 0:
         raise ValueError("masses must be a non-empty 1D list")
@@ -26,7 +28,10 @@ def _masses(m):
 
 
 def _springs(K, p):
-    """Per-bond spring constants as an array of length p."""
+    """Per-bond spring constants as an array of length p.
+
+    Lets callers pass one K (all bonds equal) or one K per bond; validates the
+    values so a non-positive spring can never reach the eigen-solver."""
     K = np.atleast_1d(np.asarray(K, dtype=float))
     if K.size == 1:
         K = np.full(p, K[0])
@@ -45,6 +50,9 @@ def dynamical_matrix(q, m, K, a):
 
     Atom j couples to j+1 inside the cell; atom p couples back to atom 1 of
     the next cell, which is the only q-dependent term.
+
+    Role: the physics core. Everything else (dispersion, gaps, DOS, modes, the
+    app and every figure) is built on the eigenvalues of this matrix.
     """
     m = _masses(m)
     p = m.size
@@ -75,7 +83,10 @@ def dynamical_matrix(q, m, K, a):
 
 
 def _frequencies(w2, D):
-    """sqrt of eigenvalues, clipping only round-off-sized negatives."""
+    """sqrt of eigenvalues, clipping only round-off-sized negatives.
+
+    Role: turns omega^2 from the eigen-solver into omega, and is where an
+    unstable lattice (genuinely negative omega^2) is rejected."""
     floor = -100.0 * EPS * max(np.abs(D).max(), 1e-300)
     if np.any(w2 < floor):
         raise ValueError("negative omega^2: the lattice is mechanically unstable")
@@ -83,7 +94,10 @@ def _frequencies(w2, D):
 
 
 def frequencies_at(q, m, K=1.0, a=1.0):
-    """Branch frequencies at a single wavevector, ascending."""
+    """Branch frequencies at a single wavevector, ascending.
+
+    Role: the one-q building block. dispersion() calls it for every q, and the
+    app uses it directly for the q=0 and q=pi/a eigenfrequency tables."""
     D = dynamical_matrix(q, m, K, a)
     if not np.all(np.isfinite(D)):
         raise ValueError("dynamical matrix is not finite; inputs out of range")
@@ -98,6 +112,9 @@ def dispersion(m, K=1.0, a=1.0, nq=401, full_zone=True):
     branch extrema sit at q = 0 and q = pi/a, so the full-zone grid is forced
     to contain q = 0 (nq rounded up to odd); otherwise branch limits and gap
     edges would be read off points that miss the extrema.
+
+    Role: the main entry point. The app's dispersion plot, the DOS and every
+    results figure start from the (q, omega) arrays returned here.
     """
     m = _masses(m)
     qmax = np.pi / a
@@ -111,7 +128,9 @@ def dispersion(m, K=1.0, a=1.0, nq=401, full_zone=True):
 # ---- derived quantities ----
 
 def branch_limits(w):
-    """(min, max) frequency of each branch."""
+    """(min, max) frequency of each branch.
+
+    Role: feeds the "branch limits" table in the app and the report's cases table."""
     return list(zip(w.min(axis=0), w.max(axis=0)))
 
 
@@ -121,6 +140,9 @@ def band_gaps(w, tol=1e-9):
     Branch i and i+1 are separated only if the whole of i lies below the whole
     of i+1 over the zone. `tol` is relative to the highest frequency, so the
     answer does not depend on the units of K and m.
+
+    Role: finds the forbidden-frequency bands that the app shades and labels, and
+    that the report quotes (gap 0.7071 for Case A, 0.0658 for Case B, ...).
     """
     thresh = tol * max(w.max(), 1e-300)
     gaps = []
@@ -137,6 +159,9 @@ def sound_velocity(m, K=1.0, a=1.0):
     The p springs of a cell act in series, K_eff = 1/sum(1/K_j), and the whole
     cell mass moves: v = a*sqrt(K_eff/sum(m)). With equal springs this is
     a*sqrt(K/(p*sum(m))).
+
+    Role: closed-form cross-check of the acoustic slope; shown in the app and
+    compared with the numerical slope in test_phonon.py.
     """
     m = _masses(m)
     K = _springs(K, m.size)
@@ -148,6 +173,8 @@ def is_folded(m, K=1.0, rtol=1e-9):
 
     The true period is then a/p and the 'optical' branches are the acoustic
     branch folded back into the smaller zone, not genuine optical modes.
+
+    Role: lets the app label such branches "Folded acoustic" instead of "Optical".
     """
     m = _masses(m)
     K = _springs(K, m.size)
@@ -162,6 +189,8 @@ def dos(m, K=1.0, a=1.0, nq=4001, nbins=200, bins=None):
     q = +pi/a endpoint is dropped because it is the same state as -pi/a.
     Pass explicit bin edges via `bins` to compare several lattices at one bin
     width; peak heights at a van Hove singularity depend on the bin width.
+
+    Role: supplies the DOS panel in the app and dos.png in the report.
     """
     _, w = dispersion(m, K, a, nq=nq)
     w = w[:-1]
@@ -176,7 +205,10 @@ def dos(m, K=1.0, a=1.0, nq=4001, nbins=200, bins=None):
 # ---- closed forms, for validation ----
 
 def monatomic_exact(q, m=1.0, K=1.0, a=1.0):
-    """omega = 2*sqrt(K/m)*|sin(qa/2)|."""
+    """omega = 2*sqrt(K/m)*|sin(qa/2)|.
+
+    Role: independent closed form for p=1, used only to validate the numerics
+    (test_phonon.py) and for the app's analytic overlay. Not used in the solve."""
     return 2.0 * np.sqrt(K / m) * np.abs(np.sin(q * a / 2.0))
 
 
@@ -187,6 +219,9 @@ def diatomic_exact(q, m1, m2, K=1.0, a=1.0):
     which avoids cancellation when the two terms are nearly equal; the square
     root argument is clipped because rounding can push it just below zero at
     the zone edge for equal masses.
+
+    Role: independent closed form for p=2, used to validate the numerics
+    (test_phonon.py, validation.png) and for the app's analytic overlay.
     """
     s = 1.0 / m1 + 1.0 / m2
     sin2 = np.sin(q * a / 2.0) ** 2
@@ -206,6 +241,9 @@ def modes(q, m, K=1.0, a=1.0, rtol=1e-6):
     `degenerate[b]` is True when branch b shares its frequency with another
     branch at this q. eigh then returns an arbitrary basis of the degenerate
     subspace, so the drawn pattern for that branch is not unique.
+
+    Role: gives the app's "Mode displacements" arrows and modes.png; the
+    degeneracy flag lets the app warn instead of drawing an arbitrary pattern.
     """
     m = _masses(m)
     D = dynamical_matrix(q, m, K, a)

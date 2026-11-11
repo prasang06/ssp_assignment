@@ -74,6 +74,10 @@ with st.sidebar:
 
 @st.cache_data(max_entries=64)
 def solve(masses, K, a, nq):
+    """Cached call to phonon.dispersion.
+
+    Role: the one expensive step in the app. Caching means moving an unrelated
+    widget does not re-diagonalise; masses arrive as a tuple so they can be hashed."""
     return ph.dispersion(list(masses), K, a, nq=nq)
 
 

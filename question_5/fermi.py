@@ -25,13 +25,20 @@ EV = 1.602176634e-19          # joules per electronvolt
 # ---- occupation ----
 
 def _check_positive(**kw):
+    """Raise ValueError unless every keyword value is finite and > 0.
+
+    Role: input guard shared by the public functions, so T=0, n<=0 or NaN fail
+    with a clear message instead of a divide-by-zero deep inside the solver."""
     for name, v in kw.items():
         if not np.isfinite(v) or v <= 0:
             raise ValueError(f"{name} must be finite and positive, got {v!r}")
 
 
 def fermi_dirac(E, mu, T):
-    """f(E) = 1/(exp((E-mu)/kT) + 1), written to not overflow. Needs T > 0."""
+    """f(E) = 1/(exp((E-mu)/kT) + 1), written to not overflow. Needs T > 0.
+
+    Role: the occupation probability. Drawn beside the bands in the app and in
+    bands.png / occupation.png, and multiplied by D(E) for the occupied states."""
     _check_positive(T=T)
     # expit(x) = 1/(1+exp(-x)), so f = expit(-(E-mu)/kT) with no large exp
     return expit(-(np.asarray(E, dtype=float) - mu) / (K_B * T))
@@ -40,7 +47,10 @@ def fermi_dirac(E, mu, T):
 # ---- density of states ----
 
 def dos(E, m_eff, Ec=0.0):
-    """Conduction-band DOS per unit volume per unit energy; zero below Ec."""
+    """Conduction-band DOS per unit volume per unit energy; zero below Ec.
+
+    Role: D(E) proportional to sqrt(E-Ec). Plotted on its own and as D(E)f(E);
+    the carrier-density integral is built from it."""
     E = np.asarray(E, dtype=float)
     out = np.zeros_like(E)
     above = E > Ec
@@ -50,7 +60,11 @@ def dos(E, m_eff, Ec=0.0):
 
 
 def n_c(m_eff, T):
-    """Effective conduction-band density of states N_c."""
+    """Effective conduction-band density of states N_c.
+
+    Role: the density scale that sets how readily a material goes degenerate
+    (crossover near n ~ N_c). Used to normalise the Fermi integral and to
+    start the root-finder."""
     _check_positive(m_eff=m_eff, T=T)
     return 2.0 * (m_eff * K_B * T / (2 * np.pi * HBAR**2)) ** 1.5
 
@@ -62,6 +76,9 @@ def _quad(fn, a, b):
 
     The default epsabs (~1.5e-8) is an absolute floor, which for a tiny
     integral silently becomes a large relative error.
+
+    Role: the single integration routine behind fermi_integral_half, so every
+    Fermi integral gets the same accuracy guarantee.
     """
     if b <= a:
         return 0.0
@@ -80,6 +97,9 @@ def fermi_integral_half(eta):
     1 to 0, and again 60 below it, so the step is resolved even when eta is
     huge. The integrand decays like exp(-(x-eta)), so eta + 60 is far past
     negligible.
+
+    Role: the numerical heart of Q5. All non-Boltzmann carrier densities, and so
+    every value of mu, come from this integral.
     """
     eta = float(eta)
     if eta < 0.0:
@@ -94,7 +114,10 @@ def fermi_integral_half(eta):
 
 
 def carrier_density(mu, T, m_eff, Ec=0.0):
-    """n = int D(E) f(E) dE, via the dimensionless integral."""
+    """n = int D(E) f(E) dE, via the dimensionless integral.
+
+    Role: forward map mu -> n. solve_mu inverts it, and test_fermi.py uses it
+    for the round-trip check."""
     eta = (mu - Ec) / (K_B * T)
     return n_c(m_eff, T) * (2.0 / np.sqrt(np.pi)) * fermi_integral_half(eta)
 
@@ -107,6 +130,9 @@ def solve_mu(n, T, m_eff, Ec=0.0):
     ln(n/N_c)), and the T = 0 sphere underestimates it (so the true eta is
     below E_F/kT when that is positive). The bracket is then only widened if
     round-off makes those bounds touch the root.
+
+    Role: the main result function. Gives mu(T) at fixed n for the app's metrics
+    and sweeps and for mu_vs_T.png / mu_vs_n.png.
     """
     _check_positive(n=n, T=T, m_eff=m_eff)
     target = float(n)
@@ -137,7 +163,10 @@ def solve_mu(n, T, m_eff, Ec=0.0):
 
 
 def boltzmann_mu(n, T, m_eff, Ec=0.0):
-    """Non-degenerate closed form: n = N_c exp((mu-Ec)/kT). For validation."""
+    """Non-degenerate closed form: n = N_c exp((mu-Ec)/kT). For validation.
+
+    Role: low-density limit that the full solver must reproduce (test_fermi.py);
+    also gives the lower edge of solve_mu's bracket."""
     _check_positive(n=n)
     return Ec + K_B * T * np.log(n / n_c(m_eff, T))
 
@@ -161,6 +190,9 @@ def fermi_quantities(n, m_eff, valleys=None):
 
     These describe a degenerate gas. For a non-degenerate semiconductor they
     are formal numbers; `degeneracy` below says which regime applies.
+
+    Role: gives E_F, k_F, v_F, T_F for the app's metric tiles and the report's
+    tables, and supplies the upper edge of solve_mu's bracket.
     """
     _check_positive(n=n, m_eff=m_eff)
     if valleys is None:
@@ -179,12 +211,18 @@ def fermi_quantities(n, m_eff, valleys=None):
 
 
 def degeneracy(mu, T, Ec=0.0):
-    """eta = (mu - Ec)/kT.  eta >> 1 degenerate, eta << -1 non-degenerate."""
+    """eta = (mu - Ec)/kT.  eta >> 1 degenerate, eta << -1 non-degenerate.
+
+    Role: the number behind the app's regime banner (degenerate / intermediate /
+    non-degenerate)."""
     return (mu - Ec) / (K_B * T)
 
 
 def sommerfeld_mu(n, T, m_eff, Ec=0.0):
-    """Degenerate low-T expansion: mu ~ E_F[1 - (pi^2/12)(kT/E_F)^2]."""
+    """Degenerate low-T expansion: mu ~ E_F[1 - (pi^2/12)(kT/E_F)^2].
+
+    Role: analytic low-temperature limit, used to validate solve_mu and drawn
+    in the degenerate panel of mu_vs_T.png."""
     _check_positive(n=n, T=T)
     E_F = fermi_quantities(n, m_eff)["E_F"]
     return Ec + E_F * (1.0 - (np.pi**2 / 12.0) * (K_B * T / E_F) ** 2)

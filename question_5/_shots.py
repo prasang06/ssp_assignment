@@ -21,6 +21,8 @@ def trim(path, sidebar_frac=0.25):
 
     The bbox is taken from the main panel only: the sidebar is a full-height
     grey block, so including it would always report the full image height.
+
+    Role: tidies each screenshot before it goes into the report.
     """
     from PIL import Image, ImageChops
     im = Image.open(path).convert("RGB")
@@ -33,7 +35,9 @@ def trim(path, sidebar_frac=0.25):
 
 
 def settle(page, seconds=4.0):
-    """Streamlit reruns on every change; wait for it to stop being busy."""
+    """Streamlit reruns on every change; wait for it to stop being busy.
+
+    Role: called after each click so the screenshot is taken on the finished page."""
     page.wait_for_load_state("networkidle")
     time.sleep(seconds)
 

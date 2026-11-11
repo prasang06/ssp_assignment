@@ -35,6 +35,7 @@ CM3 = 1e6
 
 
 def ev(E):
+    """Joules -> eV. The physics module works in SI; the app displays eV."""
     return E / f.EV
 
 
@@ -93,17 +94,20 @@ if mat and mat["valleys"] and abs(m_rel - mat["m"]) < 1e-9:
 
 @st.cache_data(max_entries=256)
 def mu_of(n, T, m_eff, Ec):
+    """Cached fermi.solve_mu for the current inputs; drives the metrics, banner and plots."""
     return f.solve_mu(n, T, m_eff, Ec)
 
 
 @st.cache_data(max_entries=64)
 def mu_sweep_T(n, m_eff, Ec):
+    """mu(T) at fixed n over 5-1000 K (90 root-finds). Cached; feeds the mu-vs-T plot."""
     Ts = np.linspace(5.0, 1000.0, 90)
     return Ts, np.array([f.solve_mu(n, t, m_eff, Ec) for t in Ts])
 
 
 @st.cache_data(max_entries=64)
 def mu_sweep_n(T, m_eff, Ec):
+    """mu(n) at fixed T over 1e12-1e20 cm^-3 (81 root-finds). Cached; feeds the mu-vs-n plot."""
     ns = np.logspace(12, 20, 81)
     return ns, np.array([f.solve_mu(x * CM3, T, m_eff, Ec) for x in ns])
 
@@ -186,7 +190,9 @@ elif not mat and T < 100 and eta < 0:
 
 def energy_grid(lo, hi, n_pts):
     """Uniform grid plus a dense patch around mu, so the Fermi step is resolved
-    even when k_BT is far smaller than the uniform spacing."""
+    even when k_BT is far smaller than the uniform spacing.
+
+    Role: energy axis for the band diagram and D(E) plots."""
     patch = np.linspace(mu - 12 * kT, mu + 12 * kT, 600)
     E = np.concatenate([np.linspace(lo, hi, n_pts), patch[(patch > lo) & (patch < hi)]])
     return np.unique(E)

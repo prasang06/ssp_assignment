@@ -24,6 +24,9 @@ CASES = [
 # ---- dispersion with gaps shaded ----
 
 def plot_dispersion(ax, m, K, a=1.0, nq=801, annotate_gaps=True, ymax=None):
+    """Draw one dispersion onto `ax`: a line per branch, shaded and labelled gaps.
+
+    Role: shared by fig_cases and fig_comparison so every case looks identical."""
     q, w = ph.dispersion(m, K, a, nq=nq)
     colors = style.branch_colors(len(m))
 
@@ -49,10 +52,12 @@ def plot_dispersion(ax, m, K, a=1.0, nq=801, annotate_gaps=True, ymax=None):
 
 
 def _common_ymax():
+    """Highest frequency over all three cases, so the comparison panels share a y-scale."""
     return max(ph.dispersion(m, K, nq=401)[1].max() for _, m, K, _ in CASES)
 
 
 def fig_cases():
+    """case_a/b/c.png: each required mass combination on its own."""
     for name, m, K, title in CASES:
         fig, ax = plt.subplots(figsize=(5.2, 3.6))
         plot_dispersion(ax, m, K)
@@ -63,7 +68,9 @@ def fig_cases():
 
 
 def fig_comparison():
-    """All three cases side by side — the gap is the thing that changes."""
+    """All three cases side by side — the gap is the thing that changes.
+
+    Role: comparison.png, the report's main results figure."""
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.4), sharey=True)
     ymax = _common_ymax()
     for ax, (_, m, K, title) in zip(axes, CASES):
@@ -80,6 +87,7 @@ def fig_comparison():
 # ---- spring-constant sweep: omega scales as sqrt(K), gap ratios do not move ----
 
 def fig_spring_sweep():
+    """spring_sweep.png: Case A at several K, then rescaled by sqrt(K) to show K only sets the scale."""
     m = [1.0, 4.0]
     Ks = [0.5, 1.0, 2.0, 4.0]
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3.6))
@@ -118,6 +126,7 @@ def fig_spring_sweep():
 # ---- gap width vs mass ratio ----
 
 def fig_gap_vs_ratio():
+    """gap_vs_ratio.png: gap width against m2/m1; shows the gap closes continuously at equal masses."""
     ratios = np.linspace(1.0, 6.0, 120)
     widths = []
     for r in ratios:
@@ -139,6 +148,7 @@ def fig_gap_vs_ratio():
 # ---- validation: numerics on top of the closed form ----
 
 def fig_validation():
+    """validation.png: numerical eigenvalue points laid over the analytic diatomic curve."""
     m1, m2 = 1.0, 4.0
     q, w = ph.dispersion([m1, m2], 1.0, nq=201)
     ac, op = ph.diatomic_exact(q, m1, m2)
@@ -163,6 +173,7 @@ def fig_validation():
 # ---- density of states ----
 
 def fig_dos():
+    """dos.png: density of states for the three cases on common bins (van Hove peaks, empty gaps)."""
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.2), sharey=True)
     # one set of bin edges for all three cases, so every panel has the same bin
     # width: a van Hove peak's height grows as the bin shrinks, so heights are
@@ -183,13 +194,16 @@ def fig_dos():
 # ---- lattice schematic ----
 
 def fig_schematic():
+    """schematic.png: the model diagram, drawn by _schematic.make."""
     _schematic.make(f"{FIG}/schematic.png")
 
 
 # ---- mode displacements ----
 
 def fig_modes():
-    """Case A at the zone centre and edge: what each branch actually does."""
+    """Case A at the zone centre and edge: what each branch actually does.
+
+    Role: modes.png, showing which atoms move in each mode (physical displacement e/sqrt(m))."""
     m, K, a, ncell = [1.0, 4.0], 1.0, 1.0, 4
     p = len(m)
     scale = 0.36          # displacement -> data units

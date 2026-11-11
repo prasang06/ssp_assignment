@@ -5,6 +5,7 @@ import phonon as ph
 
 
 def check(name, ok, detail=""):
+    """Print one PASS/FAIL line and return the boolean. Shared by every test below."""
     print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f"  {detail}" if detail else ""))
     return ok
 
@@ -12,6 +13,7 @@ def check(name, ok, detail=""):
 # ---- 1. diatomic matches the closed form ----
 
 def test_diatomic():
+    """p=2 numerics against the textbook two-branch closed form."""
     m1, m2, K, a = 1.0, 4.0, 1.0, 1.0
     q, w = ph.dispersion([m1, m2], K, a, nq=401)
     ac, op = ph.diatomic_exact(q, m1, m2, K, a)
@@ -22,6 +24,7 @@ def test_diatomic():
 # ---- 2. monatomic limit, including a folded cell of equal masses ----
 
 def test_monatomic():
+    """p=1 against 2*sqrt(K/m)*|sin(qa/2)|, plus zone folding (equal masses, p=2)."""
     K, a = 1.0, 1.0
     q, w = ph.dispersion([1.0], K, a, nq=401)
     err = np.abs(w[:, 0] - ph.monatomic_exact(q, 1.0, K, a)).max()
@@ -42,6 +45,7 @@ def test_monatomic():
 # ---- 3. acoustic slope at q->0 equals the analytic sound velocity ----
 
 def test_sound_velocity():
+    """Numerical acoustic slope at q->0 equals the analytic sound velocity."""
     worst = 0.0
     for m in ([1.0, 4.0], [1.0, 2.0, 3.0], [2.0]):
         a = 1.0
@@ -56,6 +60,7 @@ def test_sound_velocity():
 # ---- 4. acoustic branch vanishes at q=0 ----
 
 def test_acoustic_zero():
+    """omega=0 at q=0 for the acoustic branch; this is what caught the `=` vs `+=` bug."""
     worst = 0.0
     for m in ([1.0, 4.0], [1.0, 2.0, 3.0], [1.0, 1.0, 2.0, 5.0]):
         w = ph.frequencies_at(0.0, m, 1.0, 1.0)
@@ -66,6 +71,7 @@ def test_acoustic_zero():
 # ---- 5. equal masses close the gap ----
 
 def test_gap_closure():
+    """Equal masses give no gap; unequal masses do."""
     _, w_eq = ph.dispersion([1.0, 1.0], nq=801)
     _, w_un = ph.dispersion([1.0, 4.0], nq=801)
     return check("equal masses -> no gap", len(ph.band_gaps(w_eq)) == 0) and \
@@ -75,6 +81,7 @@ def test_gap_closure():
 # ---- 6. per-bond springs: invariance and series sound velocity ----
 
 def test_per_bond_springs():
+    """A scalar K equals a list of identical per-bond K; with unequal bonds omega_1(0)=0 and the slope follows the series-spring sound velocity."""
     m = [1.0, 2.0, 3.0]
     _, w_scalar = ph.dispersion(m, 1.7, nq=201)
     _, w_list = ph.dispersion(m, [1.7, 1.7, 1.7], nq=201)
@@ -96,6 +103,7 @@ def test_per_bond_springs():
 # ---- 7. robustness: units, round-off and unphysical input ----
 
 def test_robustness():
+    """Edge cases: finite closed forms, unit-independent gap detection, no overflow, q=0 sampled, degeneracy flagged, negative K rejected."""
     # closed form stays finite for equal masses (rounding used to give NaN)
     # and keeps full accuracy at extreme mass ratio (no cancellation)
     q = np.linspace(-np.pi, np.pi, 2001)
